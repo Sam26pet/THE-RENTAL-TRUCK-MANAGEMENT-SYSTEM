@@ -1,0 +1,2540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truck Booking System</title>
+    <!-- Leaflet CSS & JS (free open-source map) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Routing Machine (free routing) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <!-- Leaflet Control Geocoder (for address search) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.js"></script>
+    <style>
+        /* ============================================
+                   GLOBAL STYLES
+                   ============================================ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #f4f7fc;
+            min-height: 100vh;
+        }
+
+        /* ============================================
+                   HEADER
+                   ============================================ */
+        header {
+            background: #1e3c72;
+            padding: 15px 30px;
+            color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            position: relative;
+            z-index: 10;
+        }
+
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .logo span {
+            color: #f9d342;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 25px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: 0.3s;
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .nav-links a.active {
+            background: #f9d342;
+            color: #1e3c72;
+        }
+
+        /* ============================================
+                   HERO SECTION
+                   ============================================ */
+        .hero {
+            min-height: 100vh;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: background-image 1s ease-in-out;
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.55);
+            z-index: 1;
+        }
+
+        /* ============================================
+                   OVERLAY / FORM CONTAINER
+                   ============================================ */
+        .overlay {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(8px);
+            max-width: 950px;
+            width: 100%;
+            padding: 35px 40px;
+            border-radius: 24px;
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4);
+            transition: 0.3s;
+            position: relative;
+            z-index: 2;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .overlay h3 {
+            text-align: center;
+            color: #1e3c72;
+            font-size: 30px;
+            margin-bottom: 25px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            border-bottom: 4px solid #f9d342;
+            padding-bottom: 15px;
+        }
+
+        .overlay h3 i {
+            color: blue;
+        }
+
+        .readonly-field {
+            background: #edf4f8 !important;
+            border-color: #c3d5df !important;
+            color: #526978 !important;
+            cursor: not-allowed;
+        }
+
+        /* ============================================
+                   FORM
+                   ============================================ */
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        input,
+        select {
+            padding: 14px 18px;
+            border: 2px solid #9bcfc5;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: 0.25s;
+            background: #f8fcfb;
+            color: #173b39;
+            width: 100%;
+        }
+
+        #cargoType {
+            background: #eef8f5;
+            border-color: #8fcfc1;
+            color: #17443f;
+            font-weight: 600;
+        }
+
+        #cargoType option {
+            background: #ffffff;
+            color: #17443f;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: #247f74;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(36, 127, 116, 0.14);
+        }
+
+        input::placeholder {
+            color: #a0aec0;
+        }
+
+        /* ============================================
+                   MAP
+                   ============================================ */
+        .map-container {
+            margin: 18px 0 10px 0;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border: 2px solid #e9edf5;
+            height: 400px;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #e9edf5;
+        }
+
+        /* ============================================
+                   INFO PANEL
+                   ============================================ */
+        .info-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            background: #e1f1ed;
+            padding: 18px 22px;
+            border-radius: 14px;
+            margin: 12px 0 10px 0;
+            font-weight: 500;
+            border-left: 6px solid #2f9d8f;
+            align-items: center;
+        }
+
+        .info-panel p {
+            margin: 0;
+            font-size: 18px;
+            color: #173b39;
+            flex: 1 1 200px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-panel .label {
+            font-weight: 600;
+            color: #35645f;
+        }
+
+        .info-panel span {
+            color: #145c53;
+            font-weight: 700;
+            background: #f8fcfb;
+            padding: 4px 16px;
+            border-radius: 30px;
+            font-size: 18px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        /* ============================================
+                   BUTTONS
+                   ============================================ */
+        .form-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary {
+            background: #1e3c72;
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.25s;
+            flex: 1 1 auto;
+            text-align: center;
+            text-decoration: none;
+            box-shadow: 0 6px 20px rgba(30, 60, 114, 0.3);
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary:hover {
+            background: #122b52;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(30, 60, 114, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0px);
+        }
+
+        .btn-secondary {
+            background: #6c7a92;
+            box-shadow: 0 6px 20px rgba(108, 122, 146, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: #4d5a6e;
+        }
+
+        .btn-success {
+            background: #28a745;
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            box-shadow: 0 6px 20px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: #b02a37;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #1a2b4a;
+            box-shadow: 0 6px 20px rgba(255, 193, 7, 0.3);
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        /* ============================================
+                   AGREEMENT POPUP
+                   ============================================ */
+        #agreementPopup {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(8, 20, 42, 0.74);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(10px);
+            animation: agreementFadeIn 0.3s ease;
+        }
+
+        @keyframes agreementFadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .agreement-box {
+            position: relative;
+            background: linear-gradient(145deg, #ffffff 0%, #f4f8ff 100%);
+            padding: 34px 38px 30px;
+            border-radius: 24px;
+            max-width: 650px;
+            width: 92%;
+            box-shadow: 0 30px 90px rgba(0, 12, 40, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            border-top: 7px solid #f9d342;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: agreementRiseIn 0.35s ease-out;
+        }
+
+        @keyframes agreementRiseIn {
+            from { opacity: 0; transform: translateY(18px) scale(.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .agreement-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            color: #247f74;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .agreement-kicker::before {
+            content: '';
+            width: 28px;
+            height: 3px;
+            border-radius: 5px;
+            background: #f9d342;
+        }
+
+        .agreement-box h2 {
+            margin-top: 0;
+            color: #132b52;
+            font-size: 29px;
+            border-bottom: 1px solid #dfe7f2;
+            padding-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: -.4px;
+        }
+
+        .agreement-box h2 i {
+            color: #e2ae00;
+        }
+
+        .agreement-box p {
+            font-size: 15px;
+            line-height: 1.65;
+            color: #526078;
+            margin: 18px 0;
+        }
+
+        .agreement-intro {
+            margin-bottom: 18px !important;
+            font-size: 16px !important;
+            color: #263b59 !important;
+        }
+
+        .agreement-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 18px 0 20px;
+        }
+
+        .agreement-detail {
+            min-width: 0;
+            padding: 14px 16px;
+            border: 1px solid #dce6f2;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, .82);
+        }
+
+        .agreement-detail-label {
+            display: block;
+            margin-bottom: 5px;
+            color: #73829a;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .8px;
+            text-transform: uppercase;
+        }
+
+        .agreement-detail-value {
+            display: block;
+            overflow: hidden;
+            color: #173b6d;
+            font-size: 15px;
+            font-weight: 700;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .agreement-total {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 16px 18px;
+            border-radius: 15px;
+            background: #eaf3ff;
+            border: 1px solid #cfe0f7;
+            color: #173b6d;
+            font-weight: 700;
+        }
+
+        .agreement-total .highlight {
+            color: #b17c00;
+            font-size: 20px;
+            font-weight: 800;
+        }
+
+        .agreement-note {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            margin: 18px 0 0 !important;
+            padding: 12px 14px;
+            border-left: 4px solid #2f9d8f;
+            border-radius: 8px;
+            background: #edf8f6;
+            color: #35645f !important;
+            font-size: 13px !important;
+        }
+
+        .agreement-buttons {
+            display: flex;
+            justify-content: stretch;
+            gap: 18px;
+            margin-top: 28px;
+        }
+
+        .agreement-buttons .btn-primary {
+            flex: 1;
+            min-height: 52px;
+            padding: 13px 20px;
+            font-size: 16px;
+        }
+
+        /* ============================================
+                   SUCCESS POPUP
+                   ============================================ */
+        #successPopup {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(6px);
+            animation: agreementFadeIn 0.35s ease;
+        }
+
+        .success-box {
+            background: white;
+            padding: 45px 50px;
+            border-radius: 28px;
+            max-width: 520px;
+            width: 92%;
+            text-align: center;
+            box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+            border-top: 10px solid #28a745;
+        }
+
+        .success-box .icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+        }
+
+        .success-box h2 {
+            color: #28a745;
+            font-size: 30px;
+            margin-bottom: 15px;
+        }
+
+        .success-box p {
+            font-size: 16px;
+            color: #1a2b4a;
+            line-height: 1.8;
+            margin-bottom: 25px;
+        }
+
+        .success-box .booking-summary {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px 20px;
+            text-align: left;
+            margin-bottom: 25px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .success-box .booking-summary .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .success-box .booking-summary .row:last-child {
+            border-bottom: none;
+        }
+
+        .success-box .booking-summary .label {
+            color: #6c7a92;
+            font-weight: 500;
+        }
+
+        .success-box .booking-summary .value {
+            color: #1e3c72;
+            font-weight: 700;
+        }
+
+        /* ============================================
+                   FOOTER
+                   ============================================ */
+        footer {
+            text-align: center;
+            padding: 25px;
+            background: #1e3c72;
+            color: white;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+            font-size: 15px;
+        }
+
+        footer span {
+            color: #f9d342;
+        }
+
+        /* ============================================
+                   RESPONSIVE
+                   ============================================ */
+        @media (max-width: 768px) {
+            .overlay {
+                padding: 20px 22px;
+            }
+            .info-panel {
+                flex-direction: column;
+                gap: 10px;
+                padding: 15px 18px;
+            }
+            .info-panel p {
+                font-size: 16px;
+            }
+            .agreement-box {
+                padding: 25px 20px;
+            }
+            .agreement-summary {
+                grid-template-columns: 1fr;
+            }
+            .agreement-buttons {
+                flex-direction: column-reverse;
+                gap: 10px;
+            }
+            .success-box {
+                padding: 30px 25px;
+            }
+            .nav-links {
+                gap: 12px;
+            }
+            .nav-links a {
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+            .map-container {
+                height: 280px;
+            }
+        }
+
+        /* Refined booking experience */
+        :root {
+            --ink: #17324d;
+            --muted: #60758a;
+            --teal: #087f8c;
+            --teal-dark: #075568;
+            --navy: #062f3d;
+            --mint: #e7f7f4;
+            --coral: #ed765f;
+            --line: #cfe1e5;
+            --surface: rgba(239, 248, 246, 0.98);
+        }
+
+        body {
+            color: var(--ink);
+            background: #0b3444;
+        }
+
+        header {
+            background: rgba(7, 42, 57, 0.96);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+        }
+
+        .nav-links a.active {
+            background: var(--coral);
+            color: #fff;
+        }
+
+        .hero {
+            min-height: calc(100vh - 68px);
+            padding: 46px 20px 64px;
+            background-position: center;
+            background-color: var(--navy);
+        }
+
+        .hero::before {
+            background: linear-gradient(135deg, rgba(6, 39, 53, 0.84), rgba(7, 92, 91, 0.57));
+        }
+
+        .overlay {
+            max-width: 1040px;
+            padding: 34px;
+            background: var(--surface);
+            border: 1px solid rgba(184, 232, 222, 0.5);
+            box-shadow: 0 28px 80px rgba(4, 29, 43, 0.38);
+        }
+
+        .overlay::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+            background: linear-gradient(120deg, rgba(8, 127, 140, .07), transparent 42%, rgba(237, 118, 95, .06));
+        }
+
+        .overlay > * {
+            position: relative;
+        }
+
+        .overlay h3 {
+            margin-bottom: 28px;
+            color: var(--teal-dark);
+            font-size: 30px;
+            letter-spacing: 0;
+            border-bottom: 0;
+            text-align: left;
+        }
+
+        .overlay h3::after {
+            content: '';
+            display: block;
+            width: 58px;
+            height: 4px;
+            margin-top: 12px;
+            border-radius: 4px;
+            background: var(--coral);
+        }
+
+        .overlay h3 i {
+            color: inherit;
+            font-style: normal;
+        }
+
+        .form-row {
+            gap: 18px;
+        }
+
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .field-label {
+            color: var(--ink);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .7px;
+            text-transform: uppercase;
+        }
+
+        input,
+        select {
+            min-height: 50px;
+            padding: 13px 16px;
+            border: 1px solid var(--line);
+            border-radius: 11px;
+            background: #f7fbfb;
+            color: var(--ink);
+        }
+
+        input:focus,
+        select:focus {
+            border-color: var(--teal);
+            box-shadow: 0 0 0 4px rgba(8, 127, 140, 0.13);
+            background: #fff;
+        }
+
+        .readonly-field {
+            background: #edf5f5 !important;
+            border-color: #c8dddd !important;
+            color: #557080 !important;
+        }
+
+        .location-field {
+            border-width: 1px;
+            background: #f0f8f6;
+        }
+
+        .location-field::placeholder {
+            color: #8a9baa;
+        }
+
+        .truck-panel {
+            margin-bottom: 28px;
+            padding: 22px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #075568, #087f8c);
+            box-shadow: 0 14px 30px rgba(7, 85, 104, .2);
+        }
+
+        .truck-panel h4 {
+            margin-bottom: 16px;
+            color: #fff1c2;
+            font-size: 17px;
+            letter-spacing: .2px;
+        }
+
+        .truck-detail {
+            border-left-color: #f3bd61;
+            background: rgba(255, 255, 255, .1);
+        }
+
+        .truck-detail value {
+            color: #fff1c2;
+        }
+
+        .truck-image img {
+            border-color: #f3bd61;
+        }
+
+        .map-container {
+            height: 360px;
+            margin: 22px 0 12px;
+            border: 5px solid #0b5261;
+            border-radius: 16px;
+            box-shadow: 0 14px 30px rgba(6, 47, 61, .22);
+        }
+
+        .info-panel {
+            gap: 12px;
+            padding: 15px;
+            margin: 14px 0 6px;
+            border: 1px solid #c7e6df;
+            border-left: 5px solid var(--teal);
+            background: #d8eee8;
+        }
+
+        .info-panel p {
+            gap: 7px;
+            color: var(--ink);
+            font-size: 15px;
+        }
+
+        .info-panel span {
+            padding: 5px 11px;
+            color: var(--teal-dark);
+            background: #eff9f6;
+            font-size: 15px;
+        }
+
+        .form-buttons {
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .btn-primary {
+            min-height: 50px;
+            padding: 13px 24px;
+            border-radius: 11px;
+            background: var(--teal);
+            font-size: 15px;
+            letter-spacing: 0;
+            box-shadow: 0 8px 18px rgba(8, 127, 140, .2);
+        }
+
+        .btn-primary:hover {
+            background: var(--teal-dark);
+            box-shadow: 0 12px 24px rgba(7, 85, 104, .24);
+        }
+
+        .btn-secondary {
+            background: #c9dddc;
+            color: #496476;
+            box-shadow: none;
+        }
+
+        .btn-secondary:hover {
+            background: #b7d0cf;
+            color: var(--ink);
+        }
+
+        .btn-success {
+            background: var(--coral);
+            box-shadow: 0 8px 18px rgba(237, 118, 95, .22);
+        }
+
+        .btn-success:hover {
+            background: #d85e4d;
+        }
+
+        footer {
+            background: #072a39;
+        }
+
+        @media (max-width: 600px) {
+            .overlay {
+                padding: 24px 18px;
+                border-radius: 18px;
+            }
+
+            .overlay h3 {
+                font-size: 24px;
+            }
+
+            .map-container {
+                height: 290px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .overlay h3 {
+                font-size: 22px;
+            }
+            .btn-primary {
+                padding: 14px 20px;
+                font-size: 16px;
+            }
+        }
+
+      
+        .leaflet-control-geocoder {
+            border-radius: 10px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+        }
+        .leaflet-control-geocoder input {
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+            font-size: 14px;
+        }
+        .leaflet-routing-container {
+            background: rgba(239, 248, 246, 0.96);
+            border-radius: 12px;
+            padding: 10px;
+            font-size: 14px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+        }
+        .leaflet-routing-container .leaflet-routing-alt {
+            max-height: 150px;
+        }
+        .leaflet-routing-container .leaflet-routing-alt tr td {
+            padding: 4px 8px;
+        }
+
+        /* Map marker custom style */
+        .custom-marker {
+            background: #1e3c72;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .custom-marker-start {
+            background: #28a745;
+        }
+
+        .custom-marker-end {
+            background: #dc3545;
+        }
+
+        .leaflet-control-zoom a,
+        .leaflet-control-geocoder {
+            color: var(--teal-dark);
+        }
+
+        @media (max-width: 600px) {
+            .leaflet-control-geocoder {
+                max-width: calc(100vw - 70px);
+            }
+            .leaflet-control-geocoder input {
+                max-width: 180px;
+            }
+        }
+
+        /* Hidden fields for form submission */
+        .hidden-fields {
+            display: none;
+        }
+
+        /* Payment-inspired booking surface */
+        body {
+            background-color: #0f252b;
+            color: #e7f6f2;
+        }
+
+        header {
+            background: rgba(10, 35, 42, .96);
+            border-bottom: 1px solid rgba(143, 224, 207, .24);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, .28);
+        }
+
+        .nav-links a.active {
+            background: #1e3c72;
+            color: #effffb;
+            border: 1px solid rgba(143, 224, 207, .3);
+        }
+
+        .hero::before {
+            background: linear-gradient(135deg, rgba(5, 22, 27, .9), rgba(7, 80, 78, .66));
+        }
+
+        .overlay {
+            background: rgba(10, 35, 42, .95);
+            border: 1px solid rgba(143, 224, 207, .24);
+            box-shadow: 0 24px 70px rgba(0, 0, 0, .46);
+        }
+
+        .overlay::before {
+            background: linear-gradient(120deg, rgba(8, 127, 140, .16), transparent 45%, rgba(237, 118, 95, .08));
+        }
+
+        .overlay h3 {
+            color: #b9f1e4;
+        }
+
+        .field-label {
+            color: #b9d9d3;
+        }
+
+        input,
+        select,
+        .location-field {
+            border-color: rgba(143, 224, 207, .3);
+            background: #16353d;
+            color: #effffb;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: #73d6c2;
+            box-shadow: 0 0 0 3px rgba(115, 214, 194, .16);
+            background: #1b4650;
+        }
+
+        input::placeholder,
+        .location-field::placeholder {
+            color: #8eb9b2;
+        }
+
+        .readonly-field {
+            background: #12303a !important;
+            border-color: rgba(143, 224, 207, .2) !important;
+            color: #9fc9c1 !important;
+        }
+
+        #cargoType option,
+        select option {
+            background: #16353d;
+            color: #effffb;
+        }
+
+        .truck-panel {
+            background: linear-gradient(135deg, #15363f, #14584f);
+            border: 1px solid rgba(143, 224, 207, .28);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, .24);
+        }
+
+        .map-container {
+            border-color: #153f49;
+            box-shadow: 0 14px 30px rgba(0, 0, 0, .3);
+        }
+
+        .info-panel {
+            background: rgba(20, 77, 70, .78);
+            border-color: rgba(143, 224, 207, .35);
+            color: #effffb;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, .2), inset 0 1px 0 rgba(255, 255, 255, .08);
+        }
+
+        .info-panel p,
+        .info-panel .label {
+            color: #d9f4ed;
+        }
+
+        .info-panel span {
+            background: #16353d;
+            color: #b9f1e4;
+            border: 1px solid rgba(143, 224, 207, .2);
+        }
+
+        #distanceDisplay,
+        #costDisplay {
+            background: linear-gradient(135deg, #194450, #245e61);
+            color: #fff1c2;
+            border-color: rgba(249, 211, 66, .25);
+        }
+
+        #routeStatus {
+            background: #16353d;
+            color: #b9f1e4;
+            border: 1px solid rgba(143, 224, 207, .22);
+        }
+
+        .btn-primary {
+            background: #1e3c72;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, .24);
+        }
+
+        .btn-primary:hover {
+            background: #247f74;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #ffcc00, #ff8800);
+            color: #121212;
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #ffd633, #ff9933);
+            color: #121212;
+        }
+
+        .btn-secondary {
+            background: #294b53;
+            color: #d6eee9;
+            border: 1px solid rgba(143, 224, 207, .24);
+        }
+
+        .btn-secondary:hover {
+            background: #35646b;
+            color: #fff;
+        }
+
+        footer {
+            background: #0a232a;
+            border-top: 1px solid rgba(143, 224, 207, .2);
+        }
+
+        /* ============================================
+                   TRUCK INFO PANEL
+                   ============================================ */
+        .truck-panel {
+            background:
+                radial-gradient(circle at 92% 12%, rgba(237, 118, 95, .32), transparent 30%),
+                linear-gradient(135deg, #082f3d 0%, #075568 48%, #087f74 100%);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            color: white;
+            display: none;
+            border: 1px solid rgba(143, 224, 207, .35);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .1);
+        }
+
+        .truck-panel.visible {
+            display: block;
+        }
+
+        .truck-panel h4 {
+            font-size: 20px;
+            margin-bottom: 18px;
+            color: #f9d342;
+            font-weight: 700;
+        }
+
+        .truck-content {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 25px;
+            align-items: center;
+        }
+
+        .truck-image {
+            position: relative;
+        }
+
+        .truck-image img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 12px;
+            border: 3px solid #f9d342;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .truck-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-available {
+            background: #28a745;
+            color: white;
+        }
+
+        .badge-unavailable {
+            background: #dc3545;
+            color: white;
+        }
+
+        .badge-maintenance {
+            background: #ffc107;
+            color: #121212;
+        }
+
+        .truck-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .truck-detail {
+            background: rgba(255, 255, 255, 0.12);
+            padding: 12px 16px;
+            border-radius: 10px;
+            border-left: 4px solid #f9d342;
+        }
+
+        .truck-detail label {
+            display: block;
+            font-size: 12px;
+            color: #b8c5d6;
+            margin-bottom: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .truck-detail value {
+            display: block;
+            font-size: 16px;
+            font-weight: 700;
+            color: #f9d342;
+        }
+
+        @media (max-width: 768px) {
+            .truck-content {
+                grid-template-columns: 1fr;
+            }
+
+            .truck-image img {
+                height: 250px;
+            }
+
+            .truck-details {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        #agreementPopup,
+        #successPopup {
+            background: rgba(3, 17, 23, .78);
+            backdrop-filter: blur(8px);
+        }
+
+        .agreement-box,
+        .success-box {
+            width: min(92%, 620px);
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 30px;
+            border: 1px solid rgba(143, 224, 207, .22);
+            border-top: 4px solid #ed765f;
+            border-radius: 16px;
+            background: #102f38;
+            color: #e7f6f2;
+            box-shadow: 0 28px 70px rgba(0, 0, 0, .45);
+        }
+
+        .agreement-box h2,
+        .success-box h2 {
+            color: #d9f4ed;
+            font-size: 25px;
+            letter-spacing: 0;
+        }
+
+        .agreement-box h2 {
+            border-bottom-color: rgba(143, 224, 207, .18);
+        }
+
+        .agreement-box h2 i {
+            color: inherit;
+        }
+
+        .agreement-box p,
+        .success-box p {
+            color: #a9c7c4;
+            line-height: 1.55;
+        }
+
+        .agreement-intro {
+            color: #c4ded9 !important;
+        }
+
+        .agreement-summary {
+            gap: 10px;
+            margin: 16px 0;
+        }
+
+        .agreement-detail {
+            padding: 12px 14px;
+            border-color: rgba(143, 224, 207, .18);
+            border-radius: 10px;
+            background: #163b44;
+        }
+
+        .agreement-detail-label,
+        .success-box .booking-summary .label {
+            color: #8eb9b2;
+        }
+
+        .agreement-detail-value,
+        .success-box .booking-summary .value {
+            color: #e7f6f2;
+        }
+
+        .agreement-total {
+            padding: 14px 16px;
+            border-color: rgba(143, 224, 207, .2);
+            border-radius: 10px;
+            background: #194650;
+            color: #d9f4ed;
+        }
+
+        .agreement-total .highlight {
+            color: #f3bd61;
+            font-size: 18px;
+        }
+
+        .agreement-note {
+            border-left-color: #087f8c;
+            background: #163b44;
+            color: #a9c7c4 !important;
+        }
+
+        .agreement-buttons {
+            gap: 10px;
+            margin-top: 22px;
+        }
+
+        .agreement-buttons .btn-primary,
+        .success-box .btn-primary {
+            min-height: 46px;
+            border-radius: 10px;
+            padding: 11px 18px;
+            font-size: 15px;
+        }
+
+        .success-box {
+            max-width: 560px;
+            text-align: left;
+        }
+
+        .success-box .icon {
+            margin-bottom: 8px;
+            font-size: 42px;
+            text-align: center;
+        }
+
+        .success-box h2 {
+            margin-bottom: 8px;
+            color: #f3bd61;
+            text-align: center;
+        }
+
+        .success-box p {
+            margin-bottom: 18px;
+            text-align: center;
+        }
+
+        .success-box .booking-summary {
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            border-color: rgba(143, 224, 207, .18);
+            border-radius: 10px;
+            background: #163b44;
+        }
+
+        .success-box .booking-summary .row {
+            gap: 16px;
+            padding: 8px 0;
+            border-bottom-color: rgba(143, 224, 207, .14);
+        }
+
+        .success-box .booking-summary .value {
+            max-width: 68%;
+            overflow-wrap: anywhere;
+            text-align: right;
+        }
+
+        .success-box > div:last-child {
+            gap: 10px !important;
+        }
+
+        @media (max-width: 600px) {
+            .agreement-box,
+            .success-box {
+                padding: 24px 18px;
+                border-radius: 14px;
+            }
+
+            .agreement-buttons {
+                flex-direction: column-reverse;
+            }
+
+            .agreement-buttons .btn-primary,
+            .success-box .btn-primary {
+                width: 100%;
+            }
+
+            .success-box .booking-summary .row {
+                align-items: flex-start;
+            }
+        }
+
+        /* Keep booking details readable at every screen size. */
+        .info-panel {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            align-items: stretch;
+        }
+
+        .info-panel p {
+            min-width: 0;
+            flex: none;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 6px;
+            padding: 12px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, .12);
+        }
+
+        .info-panel p:last-child {
+            grid-column: 1 / -1;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .info-panel .label {
+            display: block;
+            font-size: 13px;
+        }
+
+        .info-panel span,
+        .info-panel strong {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .map-container {
+            height: clamp(280px, 42vw, 400px);
+        }
+
+        @media (max-width: 600px) {
+            .overlay {
+                padding: 24px 16px;
+                border-radius: 16px;
+            }
+
+            .truck-panel {
+                padding: 18px;
+            }
+
+            .info-panel {
+                grid-template-columns: 1fr;
+                padding: 12px;
+                gap: 10px;
+            }
+
+            .info-panel p:last-child {
+                grid-column: auto;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .info-panel span,
+            .info-panel strong {
+                font-size: 16px;
+                padding: 6px 10px;
+            }
+
+            .map-container {
+                height: 280px;
+            }
+        }
+
+        /* Digital agreement document layout. */
+        #agreementPopup { padding: 20px; overflow-y: auto; background: rgba(3, 17, 23, .82); }
+        .agreement-box { width: min(1100px, 100%); max-width: 1100px; max-height: none; padding: 25px 30px; overflow: visible; border: 1px solid rgba(143, 224, 207, .24); border-top: 1px solid rgba(143, 224, 207, .24); border-radius: 18px; background: rgba(10, 35, 42, .98); color: #e7f6f2; box-shadow: 0 24px 70px rgba(0, 0, 0, .46); }
+        .agreement-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; padding-bottom: 20px; margin-bottom: 25px; border-bottom: 2px solid rgba(143, 224, 207, .24); }
+        .agreement-header .logo-section h1 { color: #b9f1e4; font-size: 26px; }
+        .agreement-header .logo-section p { color: #8eb9b2; font-size: 14px; margin-top: 4px; }
+        .contract-badge { text-align: right; }
+        .contract-badge .badge { display: inline-block; padding: 8px 20px; border: 1px solid rgba(115, 214, 194, .3); border-radius: 30px; background: rgba(115, 214, 194, .18); color: #b9f1e4; font-size: 13px; font-weight: 700; }
+        .contract-badge .ref { display: block; margin-top: 6px; color: #f9d342; font-size: 14px; font-weight: 700; letter-spacing: 1px; }
+        .truck-summary { display: grid; grid-template-columns: 200px 1fr; gap: 24px; align-items: center; padding: 20px; margin-bottom: 25px; border: 1px solid rgba(143, 224, 207, .28); border-radius: 14px; background: linear-gradient(135deg, #15363f, #14584f); }
+        .truck-summary .truck-image { width: 100%; height: 150px; object-fit: cover; border: 2px solid rgba(249, 211, 66, .3); border-radius: 10px; background: #15363f; }
+        .truck-summary .truck-info h3 { margin-bottom: 10px; color: #f9d342; font-size: 22px; }
+        .truck-summary .details-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; }
+        .truck-summary .details-grid span { color: #b9d9d3; font-size: 13px; }
+        .truck-summary .details-grid strong { display: block; color: #e7f6f2; font-size: 14px; }
+        .agreement-content { max-height: 400px; overflow-y: auto; padding: 20px 24px; margin-bottom: 25px; border: 1px solid rgba(143, 224, 207, .15); border-radius: 12px; background: rgba(0, 0, 0, .25); }
+        .agreement-content h4 { margin: 18px 0 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(115, 214, 194, .15); color: #b9f1e4; font-size: 16px; }
+        .agreement-content h4:first-child { margin-top: 0; }
+        .agreement-content p, .agreement-content li { color: #c4ded9; font-size: 14px; line-height: 1.7; }
+        .agreement-content p { margin-bottom: 10px; }
+        .agreement-content ul { margin: 8px 0 12px; padding-left: 24px; }
+        .agreement-content .highlight-box { padding: 14px 18px; margin: 12px 0; border-left: 4px solid #f9d342; border-radius: 8px; background: rgba(115, 214, 194, .08); }
+        .signature-section { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; padding: 20px; margin-bottom: 25px; border-radius: 12px; background: rgba(0, 0, 0, .2); }
+        .signature-section .sig-box { min-height: 80px; padding: 12px 16px; border: 1px dashed rgba(143, 224, 207, .3); border-radius: 10px; }
+        .signature-section label { display: block; margin-bottom: 8px; color: #8eb9b2; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+        .signature-section .sig-line { padding: 8px 0; border-bottom: 1px solid rgba(143, 224, 207, .3); color: #b9f1e4; font-size: 14px; }
+        .signature-section .sig-date { margin-top: 6px; color: #8eb9b2; font-size: 12px; }
+        .signature-stamp { display: inline-grid; width: 108px; height: 58px; place-items: center; margin-top: 8px; border: 2px solid #73d6c2; border-radius: 50%; color: #73d6c2; font-size: 10px; font-weight: 800; line-height: 1.1; text-align: center; text-transform: uppercase; transform: rotate(-7deg); }
+        .agreement-actions { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; padding-top: 20px; border-top: 1px solid rgba(143, 224, 207, .15); }
+        .agreement-actions .btn { border-radius: 12px; padding: 14px 30px; }
+        .agreement-actions .btn-accept { background: linear-gradient(135deg, #ffcc00, #ff8800); color: #121212; }
+        .agreement-actions .btn-decline { border: 1px solid rgba(220, 53, 69, .3); background: rgba(220, 53, 69, .2); color: #ff6b7a; }
+        .agreement-actions .btn-print { border: 1px solid rgba(115, 214, 194, .2); background: rgba(115, 214, 194, .15); color: #73d6c2; }
+        @media (max-width: 700px) { #agreementPopup { padding: 10px; } .agreement-box { padding: 18px; } .truck-summary { grid-template-columns: 1fr; } .truck-summary .details-grid { grid-template-columns: 1fr 1fr; } .signature-section { grid-template-columns: 1fr; gap: 16px; } .contract-badge { text-align: left; } }
+        @media print { @page { size: A4; margin: 12mm; } html, body { background: #fff !important; } body > * { display: none !important; } #agreementPopup { position: static; display: block !important; padding: 0; background: #fff !important; } #agreementPopup .agreement-box { width: 100%; padding: 20px; border: 1px solid #ddd; background: #fff !important; color: #1a2a3a !important; box-shadow: none; } .agreement-header, .truck-summary, .agreement-content, .signature-section { background: #fff !important; color: #1a2a3a !important; } .agreement-header { border-bottom-color: #cbd5e1; } .agreement-header .logo-section h1, .agreement-content h4, .truck-summary .truck-info h3 { color: #173b6d !important; } .agreement-header .logo-section p, .contract-badge .ref, .signature-section .sig-date { color: #526078 !important; } .contract-badge .badge { border-color: #9aa8b8; background: #f1f5f9; color: #173b6d !important; } .truck-summary { border-color: #cbd5e1; } .truck-summary .truck-image { border-color: #9aa8b8; } .truck-summary .details-grid span, .agreement-content p, .agreement-content li { color: #334155 !important; } .truck-summary .details-grid strong, .signature-section .sig-line { color: #173b6d !important; } .agreement-content { max-height: none; overflow: visible; border-color: #cbd5e1; } .agreement-content h4 { border-bottom-color: #cbd5e1; } .agreement-content .highlight-box { background: #f1f5f9 !important; border-left-color: #173b6d; } .agreement-content h4:nth-of-type(6) { break-before: page; page-break-before: always; } .signature-section { border: 1px solid #cbd5e1; } .signature-section .sig-box { border-color: #9aa8b8; } .signature-stamp { border-color: #173b6d; color: #173b6d; } .agreement-actions { display: none; } }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================
+    HEADER
+    ============================================ -->
+    <header>
+        <nav class="navbar">
+            <div class="nav-links">
+                <a href="truck_register.php" class="active">Go back To Truck selection</a>
+          
+            </div>
+        </nav>
+    </header>
+
+  
+    
+    <section class="hero" id="heroSection">
+        <div class="overlay" id="booking">
+            <h3><i>Plan Your Trip Here Today</i></h3>
+
+            <!-- TRUCK SELECTION PANEL -->
+            <div id="truckPanel" class="truck-panel">
+                <h4> Your Selected Truck</h4>
+                <div id="truckContent" class="truck-content"></div>
+            </div>
+
+            <form id="bookingForm" action="customer.php" method="POST">
+                <!-- Row 1: Full Name & Email -->
+                <div class="form-row">
+                    <div class="field-group">
+                        <label class="field-label" for="fullname">Account name</label>
+                        <input class="readonly-field" type="text" id="fullname" name="fullname" placeholder="Full Name" readonly required>
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label" for="email">Account email</label>
+                        <input class="readonly-field" type="email" id="email" name="email" placeholder="Email Address" readonly required>
+                    </div>
+                </div>
+
+                <!-- Row 2: Phone & Date -->
+                <div class="form-row">
+                    <div class="field-group">
+                        <label class="field-label" for="phone">Contact phone</label>
+                        <input class="readonly-field" type="tel" id="phone" name="phone" placeholder="Phone Number" readonly required>
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label" for="tripDate">Trip date</label>
+                        <input type="date" id="tripDate" name="tripDate" min="" required>
+                    </div>
+                </div>
+
+                <!-- Pickup Location -->
+                <div class="field-group">
+                    <label class="field-label" for="pickup">Starting point</label>
+                    <input class="location-field" type="text" id="pickup" name="pickup" placeholder="Where should the truck start?" required>
+                </div>
+
+                <!-- Destination -->
+                <div class="field-group">
+                    <label class="field-label" for="destination">Drop-off point</label>
+                    <input class="location-field" type="text" id="destination" name="destination" placeholder="Where should the truck deliver?" required>
+                </div>
+
+                <!-- Hidden fields for distance and cost -->
+                <div class="hidden-fields">
+                    <input type="hidden" id="hiddenDistance" name="distance" value="">
+                    <input type="hidden" id="hiddenCost" name="cost" value="">
+                    <input type="hidden" id="hiddenCargoType" name="cargo_type" value="">
+                    <input type="hidden" id="hiddenTruckId" name="truck_id" value="">
+                    <input type="hidden" id="hiddenTruckName" name="truck_name" value="">
+                    <input type="hidden" id="pickupLat" name="pickup_lat" value="">
+                    <input type="hidden" id="pickupLng" name="pickup_lng" value="">
+                    <input type="hidden" id="destinationLat" name="destination_lat" value="">
+                    <input type="hidden" id="destinationLng" name="destination_lng" value="">
+                </div>
+
+                <!-- Map -->
+                <div class="map-container">
+                    <div id="map"></div>
+                </div>
+
+                <!-- Info Panel -->
+                <div class="info-panel" id="infoPanel">
+                    <p>
+                        <span class="label">Distance:</span>
+                        <span id="distanceDisplay">—</span>
+                    </p>
+                    <p>
+                        <span class="label">Estimated Cost:</span>
+                        <span id="costDisplay">— TZS</span>
+                    </p>
+                    <p id="discountDisplay" style="display:none; flex-wrap:wrap; gap:6px;">
+                        <span class="label">Discount:</span>
+                        <span id="discountAmountDisplay"></span>
+                    </p>
+                    <p id="payableDisplay" style="display:none; flex-wrap:wrap; gap:6px;">
+                        <span class="label">Amount to pay:</span>
+                        <strong id="payableAmountDisplay"></strong>
+                    </p>
+                    <p style="flex:0 0 auto; font-size:14px; color:#b9d9d3;">
+                        <span id="routeStatus" style="background:#16353d; color:#b9f1e4; padding:4px 16px; border-radius:30px;">⏳ Waiting for locations</span>
+                    </p>
+                </div>
+
+                <!-- Buttons -->
+                <div class="form-buttons">
+ 
+                    
+                    <button type="button" class="btn-primary" id="confirmBtn">
+                        Confirm Booking
+                    </button>
+                    <a href="#" class="btn-primary btn-secondary" onclick="location.reload();">
+                        Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- ============================================
+    AGREEMENT POPUP
+    ============================================ -->
+    <div id="agreementPopup">
+        <div class="agreement-box">
+            <div class="agreement-header">
+                <div class="logo-section">
+                    <h1>RENTAL TRUCK SYSTEM</h1>
+                    <p>Digital Rental Agreement · Tanzania</p>
+                </div>
+                <div class="contract-badge">
+                    <span class="badge">DIGITAL CONTRACT</span>
+                    <span class="ref" id="agreementReference">BOOKING AGREEMENT</span>
+                </div>
+            </div>
+
+            <div class="truck-summary">
+                <img class="truck-image" id="agreementTruckImage" src="" alt="Selected truck">
+                <div class="truck-info">
+                    <h3 id="agreementTruckName">Selected truck</h3>
+                    <div class="details-grid">
+                        <span>Plate Number <strong id="agreementTruckPlate">—</strong></span>
+                        <span>Capacity <strong id="agreementTruckCapacity">—</strong></span>
+                        <span>Fuel Type <strong id="agreementTruckFuel">—</strong></span>
+                        <span>Cargo Type <strong id="agreementTruckCargo">—</strong></span>
+                        <span>Distance <strong id="agreementDistance">—</strong></span>
+                        <span>Total Cost <strong id="agreementTotalCost">—</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="agreement-content">
+                <h4>1. PARTIES TO THIS AGREEMENT</h4>
+                <p><strong>Service Provider:</strong> Rental Truck Management System<br>
+                <strong>Address:</strong> Dar es Salaam, Tanzania</p>
+                <p><strong>Customer:</strong> <span id="agreementCustomerName">—</span><br>
+                <strong>Email:</strong> <span id="agreementCustomerEmail">—</span><br>
+                <strong>Phone:</strong> <span id="agreementCustomerPhone">—</span></p>
+
+                <h4>2. RENTAL SERVICE</h4>
+                <p>The Service Provider agrees to provide the selected vehicle together with a licensed driver for the duration of the trip. The Customer rents the vehicle for the period specified below.</p>
+                <div class="highlight-box"><p><strong>Trip Details</strong><br>
+                    Pickup: <span id="agreementTripPickup">—</span><br>
+                    Destination: <span id="agreementTripDestination">—</span><br>
+                    Trip Date: <span id="agreementTripDate">—</span><br>
+                    Distance: <span id="agreementTripDistance">—</span></p></div>
+
+                <h4>3. PAYMENT TERMS</h4>
+                <ul><li>Payment must be completed before the trip begins</li><li>Payment methods: Bank Transfer or Mobile Money</li><li>Extra costs such as fuel, parking and tolls are paid by the Customer</li><li>Full trip cost: <strong id="agreementFullCost">—</strong></li><li>Discount applied: <strong id="agreementDiscountSummary">No discount</strong></li><li>Amount Due: <strong id="agreementDueAmount">—</strong></li></ul>
+
+                <h4>4. CUSTOMER RESPONSIBILITIES</h4>
+                <ul><li>Provide accurate information during booking</li><li>Not misuse the vehicle or use it for illegal activities</li><li>Not transport prohibited or dangerous goods</li><li>Cooperate with the assigned driver</li><li>Report any issues immediately to the Service Provider</li></ul>
+
+                <h4>5. INSURANCE &amp; SAFETY</h4>
+                <p>The Service Provider provides basic insurance coverage for road incidents during the course of the trip. Damage caused by negligence, misuse or prohibited goods is excluded.</p>
+
+                <h4>6. DRIVER PROVISIONS</h4>
+                <ul><li>The Service Provider assigns a qualified and licensed driver</li><li>The driver operates the vehicle safely and professionally</li><li>The Customer shall not request the driver to violate traffic laws</li></ul>
+
+                <h4>7. CANCELLATION POLICY</h4>
+                <ul><li>More than 24 hours before trip: No charge</li><li>Less than 24 hours before trip: 20% of total rental cost</li><li>No-show at pickup location: 50% of total rental cost</li></ul>
+
+                <h4>8. DISCOUNT</h4>
+               <p>
+  Eligible customers receive the displayed discount on the amount due. 
+  The discount is applied before payment. 
+  Customers who have booked five trips in our system are also eligible for this discount.
+</p>
+
+                <h4>9. ACKNOWLEDGEMENT</h4>
+                <p>By accepting this agreement, the Customer confirms that they have read and understood these terms and agree to comply with all provisions.</p>
+            </div>
+
+            <div class="signature-section">
+                <div class="sig-box"><label>Customer · Electronic signature</label><div class="sig-line" id="agreementSignatureName">—</div><div class="sig-date" id="agreementSignatureDate">Date: —</div></div>
+                <div class="sig-box"><label>Service Provider · Official stamp</label><div class="sig-line">Rental Truck Management System</div><span class="signature-stamp">Rental Truck<br>Official</span><div class="sig-date">Digitally approved by service provider</div></div>
+            </div>
+
+            <div class="agreement-actions">
+                <button type="button" class="btn btn-decline" onclick="closeAgreement()">Decline</button>
+                <button type="button" class="btn btn-accept" onclick="acceptAgreement()">Accept &amp; Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================
+    SUCCESS POPUP
+    ============================================ -->
+    <div id="successPopup">
+        <div class="success-box">
+            <div class="icon">🎉</div>
+            <h2>Booking Confirmed!</h2>
+            <p>Your booking has been confirmed. Proceed to payment to complete your trip.</p>
+
+            <div class="booking-summary" id="bookingSummary">
+                <div class="row" id="truckRow" style="display:none;">
+                    <span class="label">Truck</span>
+                    <span class="value" id="summaryTruck">—</span>
+                </div>
+                <div class="row">
+                    <span class="label">Name</span>
+                    <span class="value" id="summaryName">—</span>
+                </div>
+                <div class="row">
+                    <span class="label">Email</span>
+                    <span class="value" id="summaryEmail">—</span>
+                </div>
+                <div class="row">
+                    <span class="label">Phone</span>
+                    <span class="value" id="summaryPhone">—</span>
+                </div>
+                <div class="row">
+                    <span class="label">From</span>
+                    <span class="value" id="summaryPickup">—</span>
+                </div>
+                <div class="row">
+                    <span class="label">To</span>
+                    <span class="value" id="summaryDestination">—</span>
+                </div>
+                <div class="row">
+                    <span class="label">Distance</span>
+                    <span class="value" id="summaryDistance">—</span>
+                </div>
+                <div class="row">
+                    <span class="label">Full cost</span>
+                    <span class="value" id="summaryOriginalCost">—</span>
+                </div>
+                <div class="row" id="summaryDiscountRow" style="display:none;">
+                    <span class="label">Discount</span>
+                    <span class="value" id="summaryDiscount">—</span>
+                </div>
+                <div class="row">
+                    <span class="label">Amount to pay</span>
+                    <span class="value" id="summaryCost">—</span>
+                </div>
+                <div class="row">
+                    <span class="label">Date</span>
+                    <span class="value" id="summaryDate">—</span>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+                <button class="btn-primary btn-success" onclick="submitForm()">
+                    Proceed to Payment
+                </button>
+                <button class="btn-primary btn-secondary" onclick="closeSuccessPopup()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================
+    FOOTER
+    ============================================ -->
+    <footer>
+        <p>© 2026 <span>Rental Truck Management System</span></p>
+    </footer>
+
+    <!-- ============================================
+    JAVASCRIPT
+    ============================================ -->
+    <script>
+        // ================================================================
+        // BACKGROUND IMAGE SLIDER
+        // ================================================================
+        const images = [
+            "image/volvo 3.jpg", "image/meat van3.jfif"
+        ];
+        let currentIndex = 0;
+        const hero = document.getElementById("heroSection");
+
+        function changeBackground() {
+            const img = new Image();
+            img.src = images[currentIndex];
+            img.onload = function() {
+                hero.style.backgroundImage = `url('${images[currentIndex]}')`;
+            };
+            img.onerror = function() {
+                hero.style.backgroundImage = `linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)`;
+            };
+            hero.style.backgroundImage = `url('${images[currentIndex]}')`;
+            currentIndex = (currentIndex + 1) % images.length;
+        }
+
+        changeBackground();
+        setInterval(changeBackground, 6000);
+
+        // ================================================================
+        // GLOBALS
+        // ================================================================
+        let map;
+        let routingControl = null;
+        let currentDistance = 0;
+        let currentCost = 0;
+        let bookingData = {};
+        let selectedTruckStatus = 'available';
+        let selectedTruckCargoType = '';
+        let selectedTruckPricePerKm = 0;
+        let discountPercent = 0;
+        let activeLocationField = 'pickup';
+        let lastRouteCoordinates = null;
+        let agreementAcceptedAt = null;
+        const CATEGORY_RATES = {
+            'Guta': 1200,
+            'Meat van': 1800,
+            'Refrigerated vans': 2500,
+            'Town ice': 3000,
+            'Heavy trucks': 3800
+        };
+
+        function getCostPerKm() {
+            return selectedTruckPricePerKm;
+        }
+
+        function updateDisplayedCost(distance) {
+            const rate = getCostPerKm();
+            const fullCost = rate ? distance * rate : 0;
+            const discountAmount = fullCost * (discountPercent / 100);
+            currentCost = fullCost - discountAmount;
+            document.getElementById('costDisplay').innerHTML = fullCost
+                ? fullCost.toFixed(0) + ' TZS <span style="font-size:14px;color:#587875;">(' + rate.toLocaleString() + ' TZS/km)</span>'
+                : 'Truck category is loading';
+            const discountDisplay = document.getElementById('discountDisplay');
+            const payableDisplay = document.getElementById('payableDisplay');
+            discountDisplay.style.display = discountPercent ? 'flex' : 'none';
+            payableDisplay.style.display = 'flex';
+            document.getElementById('discountAmountDisplay').textContent = discountPercent ? discountAmount.toFixed(0) + ' TZS (' + discountPercent + '%)' : 'No discount';
+            document.getElementById('payableAmountDisplay').textContent = currentCost ? currentCost.toFixed(0) + ' TZS' : '—';
+            document.getElementById('hiddenCost').value = fullCost ? fullCost.toFixed(2) : '';
+        }
+
+        // ================================================================
+        // INIT MAP
+        // ================================================================
+        function initMap() {
+            const darCenter = [-6.7924, 39.2083];
+
+            map = L.map('map', {
+                center: darCenter,
+                zoom: 13,
+                zoomControl: true,
+                fadeAnimation: true,
+                attributionControl: true
+            });
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19,
+                minZoom: 8
+            }).addTo(map);
+
+            setTimeout(() => map.invalidateSize(), 250);
+
+            const geocoder = L.Control.geocoder({
+                defaultMarkGeocode: false,
+                placeholder: '🔍 Search location...',
+                errorMessage: 'Location not found',
+                collapsed: false,
+                position: 'topleft'
+            }).on('markgeocode', function(e) {
+                const latlng = e.geocode.center;
+                const name = e.geocode.name;
+                const active = document.getElementById(activeLocationField);
+                if (active) {
+                    active.value = name;
+                    calculateRoute();
+                } else {
+                    map.setView(latlng, 15);
+                    L.marker(latlng, {
+                        icon: L.divIcon({
+                            className: 'custom-marker',
+                            html: '📍',
+                            iconSize: [30, 30]
+                        })
+                    }).addTo(map)
+                        .bindPopup(name)
+                        .openPopup();
+                }
+            }).addTo(map);
+
+            map.on('click', function(e) {
+                const lat = e.latlng.lat.toFixed(6);
+                const lng = e.latlng.lng.toFixed(6);
+
+                updateRouteStatus('loading', 'Getting address...');
+
+                fetch(
+                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
+                            headers: { 'Accept': 'application/json' }
+                        })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Reverse geocoding failed');
+                        return res.json();
+                    })
+                    .then(data => {
+                        const displayName = data.display_name || `${lat}, ${lng}`;
+                        const active = document.getElementById(activeLocationField);
+                        if (active) {
+                            active.value = displayName;
+                            calculateRoute();
+                        } else {
+                            L.marker([lat, lng], {
+                                icon: L.divIcon({
+                                    className: 'custom-marker',
+                                    html: '📍',
+                                    iconSize: [30, 30]
+                                })
+                            }).addTo(map)
+                                .bindPopup(displayName)
+                                .openPopup();
+                            updateRouteStatus('success', 'Location set');
+                        }
+                    })
+                    .catch(() => {
+                        const active = document.getElementById(activeLocationField);
+                        if (active) {
+                            active.value = `${lat}, ${lng}`;
+                            calculateRoute();
+                        }
+                        updateRouteStatus('error', 'Could not get address');
+                    });
+            });
+
+            const pickupInput = document.getElementById('pickup');
+            const destInput = document.getElementById('destination');
+            let destinationSearchTimer;
+
+            pickupInput.addEventListener('focus', () => activeLocationField = 'pickup');
+            destInput.addEventListener('focus', () => activeLocationField = 'destination');
+            pickupInput.addEventListener('change', calculateRoute);
+            destInput.addEventListener('change', calculateRoute);
+            pickupInput.addEventListener('blur', calculateRoute);
+            destInput.addEventListener('blur', calculateRoute);
+
+            // Search the drop-off location automatically after the user pauses typing.
+            destInput.addEventListener('input', function() {
+                clearTimeout(destinationSearchTimer);
+                const destination = destInput.value.trim();
+                if (destination.length < 3) {
+                    updateRouteStatus('waiting', 'Enter a drop-off location');
+                    return;
+                }
+                updateRouteStatus('loading', 'Searching drop-off location...');
+                destinationSearchTimer = setTimeout(calculateRoute, 800);
+            });
+
+            pickupInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault();
+                    calculateRoute(); }
+            });
+            destInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault();
+                    calculateRoute(); }
+            });
+
+            updateRouteStatus('waiting', 'Waiting for locations');
+        }
+
+        // ================================================================
+        // UPDATE ROUTE STATUS
+        // ================================================================
+        function updateRouteStatus(type, message) {
+            const status = document.getElementById('routeStatus');
+            status.textContent = message;
+
+            const colors = {
+                'waiting': '#e2e8f0',
+                'loading': '#ffc107',
+                'success': '#28a745',
+                'error': '#dc3545'
+            };
+            const textColors = {
+                'waiting': '#4a5a7a',
+                'loading': '#1a1a1a',
+                'success': 'white',
+                'error': 'white'
+            };
+            status.style.background = colors[type] || '#e2e8f0';
+            status.style.color = textColors[type] || '#4a5a7a';
+        }
+
+        // ================================================================
+        // CALCULATE ROUTE
+        // ================================================================
+        function calculateRoute() {
+            const pickup = document.getElementById('pickup').value.trim();
+            const destination = document.getElementById('destination').value.trim();
+
+            if (!pickup || !destination) {
+                document.getElementById('distanceDisplay').innerText = '—';
+                document.getElementById('costDisplay').innerHTML = '— TZS';
+                // Clear hidden fields
+                document.getElementById('hiddenDistance').value = '';
+                document.getElementById('hiddenCost').value = '';
+                if (routingControl) {
+                    map.removeControl(routingControl);
+                    routingControl = null;
+                }
+                updateRouteStatus('waiting', 'Waiting for locations');
+                return;
+            }
+
+            updateRouteStatus('loading', 'Calculating route...');
+
+            if (routingControl) {
+                map.removeControl(routingControl);
+                routingControl = null;
+            }
+
+            Promise.all([
+                getCoordinates(pickup + ', Dar es Salaam, Tanzania'),
+                getCoordinates(destination + ', Dar es Salaam, Tanzania')
+            ]).then(([coord1, coord2]) => {
+                if (coord1 && coord2) {
+                    if (routingControl) {
+                        map.removeControl(routingControl);
+                        routingControl = null;
+                    }
+
+                    routingControl = L.Routing.control({
+                        waypoints: [
+                            L.latLng(coord1[0], coord1[1]),
+                            L.latLng(coord2[0], coord2[1])
+                        ],
+                        routeWhileDragging: false,
+                        showAlternatives: false,
+                        lineOptions: {
+                            styles: [{ color: '#1e3c72', weight: 6, opacity: 0.9 }]
+                        },
+                        router: L.Routing.osrmv1({
+                            serviceUrl: 'https://router.project-osrm.org/route/v1',
+                            profile: 'driving'
+                        }),
+                        addWaypoints: false,
+                        fitSelectedRoutes: true,
+                        show: false
+                    }).on('routesfound', function(e) {
+                        const routes = e.routes;
+                        if (routes && routes.length > 0) {
+                            const route = routes[0];
+                            const distance = route.summary.totalDistance / 1000;
+                            lastRouteCoordinates = {
+                                pickup: route.waypoints[0].latLng,
+                                destination: route.waypoints[1].latLng
+                            };
+                            setRouteCoordinates(lastRouteCoordinates);
+                            currentDistance = distance;
+                            updateDisplayedCost(distance);
+
+                            // Update display
+                            document.getElementById('distanceDisplay').innerHTML = distance.toFixed(1) +
+                                ' km';
+                            // Update hidden fields for form submission
+                            document.getElementById('hiddenDistance').value = distance.toFixed(2);
+                            document.getElementById('hiddenCost').value = currentCost.toFixed(2);
+
+                            updateRouteStatus('success', 'Route found ✓');
+
+                            // Add markers
+                            const start = route.waypoints[0].latLng;
+                            const end = route.waypoints[1].latLng;
+
+                            if (window._startMarker) map.removeLayer(window._startMarker);
+                            if (window._endMarker) map.removeLayer(window._endMarker);
+
+                            window._startMarker = L.marker(start, {
+                                icon: L.divIcon({
+                                    className: 'custom-marker custom-marker-start',
+                                    html: 'A',
+                                    iconSize: [30, 30]
+                                })
+                            }).addTo(map).bindPopup('Pickup: ' + pickup);
+
+                            window._endMarker = L.marker(end, {
+                                icon: L.divIcon({
+                                    className: 'custom-marker custom-marker-end',
+                                    html: 'B',
+                                    iconSize: [30, 30]
+                                })
+                            }).addTo(map).bindPopup('Destination: ' + destination);
+                        }
+                    }).on('routingerror', function() {
+                        // Fallback: straight line
+                        const d = haversineDistance(coord1[0], coord1[1], coord2[0], coord2[1]);
+                        lastRouteCoordinates = {
+                            pickup: L.latLng(coord1[0], coord1[1]),
+                            destination: L.latLng(coord2[0], coord2[1])
+                        };
+                        setRouteCoordinates(lastRouteCoordinates);
+                        currentDistance = d;
+                        updateDisplayedCost(d);
+
+                        document.getElementById('distanceDisplay').innerHTML = d.toFixed(1) +
+                            ' km (approx)';
+                        // Update hidden fields
+                        document.getElementById('hiddenDistance').value = d.toFixed(2);
+                        document.getElementById('hiddenCost').value = currentCost.toFixed(2);
+
+                        updateRouteStatus('error', 'Route not found (using estimate)');
+
+                        if (routingControl) map.removeControl(routingControl);
+                        if (window._tempLine) map.removeLayer(window._tempLine);
+                        window._tempLine = L.polyline([coord1, coord2], {
+                            color: '#1e3c72',
+                            weight: 4,
+                            dashArray: '6,6'
+                        }).addTo(map);
+                        map.fitBounds(window._tempLine.getBounds());
+                    });
+                    routingControl.addTo(map);
+                } else {
+                    document.getElementById('distanceDisplay').innerHTML = '❌';
+                    document.getElementById('costDisplay').innerHTML = '— TZS';
+                    document.getElementById('hiddenDistance').value = '';
+                    document.getElementById('hiddenCost').value = '';
+                    updateRouteStatus('error', 'Location not found');
+                }
+            }).catch(() => {
+                document.getElementById('distanceDisplay').innerHTML = '❌';
+                document.getElementById('costDisplay').innerHTML = '— TZS';
+                document.getElementById('hiddenDistance').value = '';
+                document.getElementById('hiddenCost').value = '';
+                updateRouteStatus('error', 'Error calculating route');
+            });
+        }
+
+        // ================================================================
+        // HELPER FUNCTIONS
+        // ================================================================
+        function setRouteCoordinates(coordinates) {
+            document.getElementById('pickupLat').value = coordinates.pickup.lat;
+            document.getElementById('pickupLng').value = coordinates.pickup.lng;
+            document.getElementById('destinationLat').value = coordinates.destination.lat;
+            document.getElementById('destinationLng').value = coordinates.destination.lng;
+        }
+
+        function getCoordinates(address) {
+            const coordinateMatch = address.match(/(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)/);
+            if (coordinateMatch) {
+                return Promise.resolve([Number(coordinateMatch[1]), Number(coordinateMatch[2])]);
+            }
+
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 9000);
+            const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(address)}&limit=1&countrycodes=tz`;
+            return fetch(url, {
+                signal: controller.signal,
+                headers: { 'Accept': 'application/json' }
+            })
+                .then(res => {
+                    if (!res.ok) throw new Error('Geocoding failed');
+                    return res.json();
+                })
+                .then(data => data && data.length ? [parseFloat(data[0].lat), parseFloat(data[0].lon)] : null)
+                .catch(() => null)
+                .finally(() => clearTimeout(timeout));
+        }
+
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // ================================================================
+        // CONFIRM BOOKING
+        // ================================================================
+        function confirmBooking(e) {
+            e.preventDefault();
+
+            if (selectedTruckStatus !== 'available') {
+                alert('This truck is currently unavailable for booking. Please choose another truck.');
+                return;
+            }
+
+            if (!getCostPerKm()) {
+                alert('The selected truck category could not be loaded. Please return and choose the truck again.');
+                return;
+            }
+
+            const fullname = document.getElementById('fullname').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const pickup = document.getElementById('pickup').value.trim();
+            const destination = document.getElementById('destination').value.trim();
+            const tripDate = document.getElementById('tripDate').value;
+
+            // Validate
+            if (!fullname || !email || !phone || !pickup || !destination || !tripDate) {
+                alert('Please fill in all required fields.');
+                return;
+            }
+
+            if (!email.includes('@') || !email.includes('.')) {
+                alert('Please enter a valid email address.');
+                return;
+            }
+
+            if (phone.length < 8) {
+                alert('Please enter a valid phone number.');
+                return;
+            }
+
+            if (currentDistance === 0 || currentCost === 0) {
+                alert('Please make sure you have entered valid Pickup and Destination locations.');
+                return;
+            }
+
+            const tripDateInput = document.getElementById('tripDate');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const selectedDate = new Date(tripDate + 'T00:00:00');
+            if (selectedDate < today) {
+                alert('Please select today or a future date. Past dates are not allowed.');
+                tripDateInput.focus();
+                return;
+            }
+
+            // Save booking data
+            bookingData = {
+                fullname: fullname,
+                email: email,
+                phone: phone,
+                pickup: pickup,
+                destination: destination,
+                tripDate: tripDate,
+                distance: currentDistance.toFixed(1),
+                originalCost: (selectedTruckPricePerKm * currentDistance).toFixed(0),
+                discountAmount: (selectedTruckPricePerKm * currentDistance * discountPercent / 100).toFixed(0),
+                cost: currentCost.toFixed(0)
+            };
+
+            populateAgreement();
+
+            document.getElementById('agreementPopup').style.display = 'flex';
+        }
+
+        function populateAgreement() {
+            const truckImage = document.querySelector('#truckContent img');
+            const setText = (id, value) => { document.getElementById(id).textContent = value || '—'; };
+            const truckName = document.getElementById('hiddenTruckName').value;
+            const selectedTruck = document.querySelector('#truckContent');
+            const details = selectedTruck ? selectedTruck.querySelectorAll('.truck-detail value') : [];
+            const detailValue = index => details[index] ? details[index].textContent.replace(/\s+/g, ' ').trim() : '—';
+            const image = document.getElementById('agreementTruckImage');
+            image.src = truckImage?.src || 'image/meat van3.jfif';
+            image.alt = truckName || 'Selected truck';
+            setText('agreementTruckName', truckName || 'Selected truck');
+            setText('agreementTruckPlate', detailValue(1));
+            setText('agreementTruckCapacity', detailValue(2));
+            setText('agreementTruckFuel', detailValue(3));
+            setText('agreementTruckCargo', selectedTruckCargoType || detailValue(4));
+            setText('agreementDistance', bookingData.distance + ' km');
+            setText('agreementTotalCost', bookingData.originalCost + ' TZS');
+            setText('agreementReference', 'BOOKING AGREEMENT');
+            setText('agreementCustomerName', bookingData.fullname);
+            setText('agreementCustomerEmail', bookingData.email);
+            setText('agreementCustomerPhone', bookingData.phone);
+            setText('agreementTripPickup', bookingData.pickup);
+            setText('agreementTripDestination', bookingData.destination);
+            setText('agreementTripDate', bookingData.tripDate);
+            setText('agreementTripDistance', bookingData.distance + ' km');
+            setText('agreementFullCost', bookingData.originalCost + ' TZS');
+            setText('agreementDiscountSummary', discountPercent ? '-' + bookingData.discountAmount + ' TZS (' + discountPercent + '%)' : 'No discount');
+            setText('agreementDueAmount', bookingData.cost + ' TZS');
+            setText('agreementSignatureName', agreementAcceptedAt ? bookingData.fullname : 'Pending acceptance');
+            setText('agreementSignatureDate', agreementAcceptedAt ? 'Signed: ' + agreementAcceptedAt.toLocaleString() : 'Date: Pending acceptance');
+        }
+
+   
+        // AGREEMENT POPUP ACTIONS
+        // ================================================================
+        function closeAgreement() {
+            document.getElementById('agreementPopup').style.display = 'none';
+            window.location.href = 'truck_register.php';
+        }
+
+        function acceptAgreement() {
+            agreementAcceptedAt = new Date();
+            populateAgreement();
+            document.getElementById('agreementPopup').style.display = 'none';
+
+            const truckName = document.getElementById('hiddenTruckName').value;
+            document.getElementById('summaryName').textContent = bookingData.fullname;
+            document.getElementById('summaryEmail').textContent = bookingData.email;
+            document.getElementById('summaryPhone').textContent = bookingData.phone;
+            document.getElementById('summaryPickup').textContent = bookingData.pickup;
+            document.getElementById('summaryDestination').textContent = bookingData.destination;
+            document.getElementById('summaryDistance').textContent = bookingData.distance + ' km';
+            document.getElementById('summaryOriginalCost').textContent = bookingData.originalCost + ' TZS';
+            document.getElementById('summaryDiscountRow').style.display = discountPercent ? 'flex' : 'none';
+            document.getElementById('summaryDiscount').textContent = '-' + bookingData.discountAmount + ' TZS (' + discountPercent + '%)';
+            document.getElementById('summaryCost').textContent = bookingData.cost + ' TZS';
+            document.getElementById('summaryDate').textContent = bookingData.tripDate;
+
+            if (truckName) {
+                document.getElementById('truckRow').style.display = 'flex';
+                document.getElementById('summaryTruck').textContent = truckName;
+            }
+
+            document.getElementById('successPopup').style.display = 'flex';
+        }
+
+   
+        // SUBMIT FORM TO DATABASE
+        // ================================================================
+        function submitForm() {
+            // Close success popup
+            document.getElementById('successPopup').style.display = 'none';
+
+            // Get the form element
+            const form = document.getElementById('bookingForm');
+
+            // Update hidden fields with current values
+            document.getElementById('hiddenDistance').value = currentDistance.toFixed(2);
+            document.getElementById('hiddenCost').value = currentCost.toFixed(2);
+
+            // Submit the form
+            form.submit();
+        }
+
+      
+        // SUCCESS POPUP ACTIONS
+        // ================================================================
+        function closeSuccessPopup() {
+            document.getElementById('successPopup').style.display = 'none';
+            alert('Booking was not submitted. You can review the details and try again.');
+        }
+
+        // ================================================================
+        // LOAD TRUCK INFO
+        // ================================================================
+        function loadTruckInfo() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const truckId = urlParams.get('truck_id');
+
+            if (!truckId) return;
+
+            fetch(`api/get_truck.php?truck_id=${truckId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.truck) {
+                        const truck = data.truck;
+                        selectedTruckStatus = String(truck.status || 'available').toLowerCase();
+                        selectedTruckCargoType = String(truck.cargo_type || '').trim();
+                        selectedTruckPricePerKm = Number(truck.price_per_km) || CATEGORY_RATES[selectedTruckCargoType] || 0;
+                        displayTruckInfo(truck);
+                        document.getElementById('hiddenCargoType').value = selectedTruckCargoType;
+                        document.getElementById('hiddenTruckId').value = truck.truck_id;
+                        document.getElementById('hiddenTruckName').value = truck.truck_name;
+                        const routeQuery = new URLSearchParams(window.location.search);
+                        if (currentDistance > 0) updateDisplayedCost(currentDistance);
+                        if (routeQuery.get('pickup') && routeQuery.get('destination')) calculateRoute();
+                    }
+                })
+                .catch(err => console.error('Error loading truck:', err));
+        }
+
+        function loadCustomerProfile() {
+            fetch('customer_session.php', { credentials: 'same-origin' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Login required');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data.authenticated || !data.user) {
+                        throw new Error('Login required');
+                    }
+
+                    document.getElementById('fullname').value = data.user.fullname || '';
+                    document.getElementById('email').value = data.user.email || '';
+                    document.getElementById('phone').value = data.user.mobile || '';
+                    return fetch('api/loyalty_status.php', { credentials: 'same-origin' });
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        discountPercent = Number(data.discount_percent) || 0;
+                        if (currentDistance > 0) updateDisplayedCost(currentDistance);
+                    }
+                })
+                .catch(() => {
+                    window.location.replace('login.php');
+                });
+        }
+
+        function displayTruckInfo(truck) {
+            const imageUrl = truck.image_url || 'https://via.placeholder.com/250x200/1e3c72/ffcc00?text=Truck';
+            
+            let badgeClass = 'badge-available';
+            let badgeText = 'Available';
+
+            if (truck.status && (truck.status.toLowerCase() === 'unavailable' || truck.status.toLowerCase() === 'booked')) {
+                badgeClass = 'badge-unavailable';
+                badgeText = 'Unavailable';
+            } else if (truck.status && truck.status.toLowerCase() === 'maintenance') {
+                badgeClass = 'badge-maintenance';
+                badgeText = 'Maintenance';
+            }
+
+            const html = `
+                <div class="truck-image">
+                    <img src="${imageUrl}" alt="${truck.truck_name}" onerror="this.src='https://via.placeholder.com/250x200/1e3c72/ffcc00?text=Truck'">
+                    <span class="truck-badge ${badgeClass}">${badgeText}</span>
+                </div>
+                <div class="truck-details">
+                    <div class="truck-detail">
+                        <label>Name</label>
+                        <value>${truck.truck_name || '—'}</value>
+                    </div>
+                    <div class="truck-detail">
+                        <label>Plate Number</label>
+                        <value>${truck.plate_number || '—'}</value>
+                    </div>
+                    <div class="truck-detail">
+                        <label>Capacity</label>
+                        <value>${truck.capacity || '—'} Tons</value>
+                    </div>
+                    <div class="truck-detail">
+                        <label>Fuel Type</label>
+                        <value>${truck.fuel_type || '—'}</value>
+                    </div>
+                    <div class="truck-detail">
+                        <label>Cargo Type</label>
+                        <value>${truck.cargo_type || '—'}</value>
+                    </div>
+                    <div class="truck-detail">
+                        <label>Price per KM</label>
+                        <value>${selectedTruckPricePerKm ? selectedTruckPricePerKm.toLocaleString() + ' TZS/km' : 'Rate unavailable'}</value>
+                    </div>
+                </div>
+            `;
+
+            const truckPanel = document.getElementById('truckPanel');
+            document.getElementById('truckContent').innerHTML = html;
+            truckPanel.classList.add('visible');
+        }
+  
+       
+        // ================================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            const tripDateInput = document.getElementById('tripDate');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayStr = today.toISOString().split('T')[0];
+            tripDateInput.min = todayStr;
+
+            // Set default date to tomorrow
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const dateStr = tomorrow.toISOString().split('T')[0];
+            tripDateInput.value = dateStr;
+
+            // Load the logged-in user's details before the booking form is used.
+            loadCustomerProfile();
+            const query = new URLSearchParams(window.location.search);
+            const queryPickup = query.get('pickup');
+            const queryDestination = query.get('destination');
+            const queryTripDate = query.get('trip_date');
+            if (queryPickup) document.getElementById('pickup').value = queryPickup;
+            if (queryDestination) document.getElementById('destination').value = queryDestination;
+            if (queryTripDate) document.getElementById('tripDate').value = queryTripDate;
+            if (queryPickup && queryDestination) {
+                window.setTimeout(calculateRoute, 300);
+            }
+
+            // Load truck information if provided
+            loadTruckInfo();
+
+            // Event listeners
+            document.getElementById('confirmBtn').addEventListener('click', confirmBooking);
+
+            // Initialize map
+            initMap();
+        });
+
+        // Expose functions globally
+        window.closeAgreement = closeAgreement;
+        window.acceptAgreement = acceptAgreement;
+        window.closeSuccessPopup = closeSuccessPopup;
+        window.submitForm = submitForm;
+
+    </script>
+
+</body>
+</html>

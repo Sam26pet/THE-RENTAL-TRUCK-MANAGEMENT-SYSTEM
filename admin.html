@@ -1,0 +1,2293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="app-alert.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <title>Admin Dashboard · Rental System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #101827;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            transition: background-image 1.2s ease;
+            min-height: 100vh;
+            color: #333;
+            visibility: hidden;
+        }
+
+        .route-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            place-items: center;
+            padding: 20px;
+            background: rgba(3, 10, 20, .78);
+        }
+
+        .route-modal.is-open { display: grid; }
+
+        .route-modal-card {
+            width: min(760px, 100%);
+            padding: 20px;
+            border-radius: 14px;
+            background: #172235;
+            color: #eef4ff;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, .45);
+        }
+
+        .route-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 14px;
+        }
+
+        .route-modal-header button {
+            border: 0;
+            background: transparent;
+            color: #cbd5e1;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        #adminRouteMap {
+            height: 430px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .route-view-button {
+            margin-top: 8px;
+            padding: 7px 10px;
+            border: 1px solid rgba(96, 165, 250, .45);
+            border-radius: 7px;
+            background: rgba(37, 99, 235, .18);
+            color: #bfdbfe;
+            cursor: pointer;
+        }
+
+        .agreement-view-button {
+            margin-top: 8px;
+            padding: 7px 10px;
+            border: 1px solid rgba(115, 214, 194, .45);
+            border-radius: 7px;
+            background: rgba(37, 99, 235, .18);
+            color: #bfdbfe;
+            cursor: pointer;
+        }
+        .admin-agreement-modal { display: none; position: fixed; inset: 0; z-index: 4000; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; background: rgba(3, 10, 20, .82); }
+        .admin-agreement-modal.is-open { display: flex; }
+        .admin-agreement { width: min(1000px, 100%); padding: 28px 32px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; color: #1a2a3a; box-shadow: 0 24px 70px rgba(0, 0, 0, .45); }
+        .admin-agreement-head { display: flex; justify-content: space-between; gap: 18px; padding-bottom: 14px; border-bottom: 2px solid #205653; }
+        .admin-agreement-head h2 { color: #173b6d; font-size: 24px; }
+        .admin-agreement-head p, .admin-agreement-ref { color: #64777a; font-size: 12px; }
+        .admin-agreement-ref { color: #205653; font-weight: 800; text-align: right; }
+        .admin-agreement-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; padding: 12px; background: #edf5f5; border: 1px solid #cbdfe0; border-radius: 6px; }
+        .admin-agreement-summary span { display: block; color: #64777a; font-size: 10px; text-transform: uppercase; }
+        .admin-agreement-summary strong { display: block; color: #205653; font-size: 12px; overflow-wrap: anywhere; }
+        .admin-agreement h3 { margin: 12px 0 3px; color: #173b6d; font-size: 13px; }
+        .admin-agreement p, .admin-agreement li { color: #334155; font-size: 11px; line-height: 1.35; }
+        .admin-agreement ul { margin: 2px 0 5px; padding-left: 18px; }
+        .admin-agreement-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 14px; }
+        .admin-signature { min-height: 65px; padding: 9px; border: 1px dashed #9aa8b8; }
+        .admin-signature small { color: #64777a; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+        .admin-signature strong { display: block; margin-top: 10px; color: #173b6d; font-size: 12px; }
+        .admin-provider-stamp { display: inline-grid; width: 100px; height: 42px; place-items: center; margin-top: 5px; border: 2px solid #205653; border-radius: 50%; color: #205653; font-size: 8px; font-weight: 800; line-height: 1.05; text-align: center; transform: rotate(-6deg); }
+        .admin-agreement-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #d5dde5; }
+        .admin-agreement-actions button { padding: 8px 14px; border: 1px solid #9aa8b8; border-radius: 5px; background: #f1f5f9; color: #26364a; cursor: pointer; }
+        .admin-agreement-actions .print-admin-agreement { border-color: #205653; background: #205653; color: #fff; }
+        @media (max-width: 650px) { .admin-agreement-modal { padding: 8px; } .admin-agreement { padding: 18px 14px; } .admin-agreement-head { flex-direction: column; } .admin-agreement-ref { text-align: left; } .admin-agreement-summary { grid-template-columns: 1fr 1fr; } .admin-agreement-signatures { grid-template-columns: 1fr; } }
+        @media print { @page { size: A4; margin: 8mm; } html, body { background: #fff !important; } body.print-agreement-mode > * { display: none !important; } body.print-agreement-mode #adminAgreementModal { position: static; display: block !important; padding: 0; background: #fff !important; } body.print-agreement-mode #adminAgreementModal .admin-agreement { width: 100%; padding: 4mm; border: 0; box-shadow: none; } .admin-agreement-summary { margin: 8px 0; padding: 8px; } .admin-agreement h3 { margin-top: 7px; } .admin-agreement p, .admin-agreement li { font-size: 9px; line-height: 1.18; } .admin-agreement ul { margin-bottom: 2px; } .admin-agreement h3:nth-of-type(6) { break-before: page; page-break-before: always; } .admin-agreement-signatures { margin-top: 8px; } body.print-agreement-mode .admin-agreement-actions { display: none; } }
+
+        body.admin-ready { visibility: visible; }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(8, 17, 38, 0.88), rgba(20, 28, 48, 0.72));
+            backdrop-filter: blur(2px);
+            z-index: -1;
+        }
+
+        /* ============================================
+           NAVBAR
+           ============================================ */
+        .navbar {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            padding: 0 30px;
+            height: 70px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: #f9d342;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-right {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .nav-right a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: 0.3s;
+        }
+
+        .nav-right a:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* ============================================
+           MAIN CONTAINER
+           ============================================ */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .page-title {
+            font-size: 32px;
+            color: #1e3c72;
+            margin-bottom: 30px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* ============================================
+           STATS GRID
+           ============================================ */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.94);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-left: 5px solid #1e3c72;
+            transition: 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .stat-label {
+            color: #6c7a92;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1e3c72;
+        }
+
+        .stat-icon {
+            font-size: 28px;
+            float: right;
+            opacity: 0.3;
+        }
+
+        /* ============================================
+           TABS
+           ============================================ */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 15px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #6c7a92;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 14px;
+        }
+
+        .tab-btn:hover {
+            color: #1e3c72;
+        }
+
+        .tab-btn.active {
+            color: #1e3c72;
+            border-bottom-color: #f9d342;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .management-filter {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border: 1px solid rgba(115, 214, 194, 0.22);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.94);
+        }
+
+        .management-filter label {
+            color: #1e3c72;
+            font-size: 14px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .management-filter select {
+            min-width: 230px;
+            padding: 11px 14px;
+            border: 1px solid #b9d5e8;
+            border-radius: 9px;
+            background: #f8fbff;
+            color: #173b6d;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .management-filter select:focus {
+            outline: 0;
+            border-color: #247f74;
+            box-shadow: 0 0 0 3px rgba(36, 127, 116, 0.14);
+        }
+
+        .filter-button {
+            border: 0;
+            border-radius: 9px;
+            padding: 11px 18px;
+            background: #1e3c72;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .filter-button.clear { background: #6c7a92; }
+        .filter-button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+
+        @media (max-width: 600px) {
+            .management-filter { align-items: stretch; flex-direction: column; }
+            .management-filter select { min-width: 0; width: 100%; }
+        }
+
+        /* ============================================
+           TABLE STYLES
+           ============================================ */
+        .table-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            overflow-x: hidden;
+        }
+
+        .payment-table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        #recentBookingsTable,
+        #usersTable {
+            min-width: 0;
+        }
+
+        #recentBookingsTable th,
+        #recentBookingsTable td,
+        #usersTable th,
+        #usersTable td {
+            min-width: 0;
+            vertical-align: middle;
+            overflow-wrap: anywhere;
+            white-space: normal;
+            font-size: 13px;
+        }
+
+        #recentBookingsTable th:nth-child(1),
+        #usersTable th:nth-child(1) { width: 9%; }
+
+        #recentBookingsTable th:nth-child(2),
+        #usersTable th:nth-child(2) { width: 12%; }
+
+        #recentBookingsTable th:nth-child(11),
+        #recentBookingsTable td:nth-child(11),
+        #usersTable th:nth-child(11),
+        #usersTable td:nth-child(11) {
+            width: 12%;
+            white-space: normal;
+        }
+
+        #recentBookingsTable th,
+        #usersTable th { padding: 12px 8px; font-size: 12px; line-height: 1.3; }
+
+        #recentBookingsTable td,
+        #usersTable td { padding: 12px 8px; line-height: 1.45; }
+
+        #recentBookingsTable .booking-action,
+        #usersTable .booking-action { width: 100%; min-width: 0; padding: 9px 6px; font-size: 12px; }
+
+        table th {
+            background: #f8f9fa;
+            padding: 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #1e3c72;
+            border-bottom: 2px solid #e2e8f0;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        #recentBookingsTable thead th,
+        #usersTable thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: #1d524e;
+            color: #e8fff9;
+            border-bottom: 3px solid #73d6c2;
+            box-shadow: 0 3px 0 rgba(7, 38, 37, 0.35);
+            white-space: nowrap;
+        }
+
+        #recentBookingsTable tbody tr:nth-child(even),
+        #usersTable tbody tr:nth-child(even) {
+            background: rgba(115, 214, 194, 0.045);
+        }
+
+        #recentBookingsTable tbody tr:hover,
+        #usersTable tbody tr:hover {
+            background: rgba(115, 214, 194, 0.13);
+        }
+
+        table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #333;
+        }
+
+        table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-available {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-unavailable {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-maintenance {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-booked {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c7a92;
+        }
+
+        .truck-actions {
+            display: flex;
+            gap: 9px;
+            flex-wrap: wrap;
+            min-width: 220px;
+            align-items: center;
+        }
+
+        .truck-thumbnail {
+            width: 72px;
+            height: 52px;
+            object-fit: cover;
+            border-radius: 7px;
+            border: 1px solid #dbe3ed;
+            background: #eef2f7;
+            display: block;
+        }
+
+        #paymentsTable {
+            min-width: 1900px;
+            table-layout: auto;
+        }
+
+        #paymentsTable th,
+        #paymentsTable td {
+            min-width: 105px;
+            padding: 12px 10px;
+            font-size: 13px;
+            line-height: 1.45;
+            vertical-align: middle;
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+
+        #paymentsTable th:nth-child(2),
+        #paymentsTable td:nth-child(2) { min-width: 190px; }
+
+        #paymentsTable th:nth-child(4),
+        #paymentsTable td:nth-child(4) { min-width: 170px; }
+
+        .feedback-table-container {
+            overflow-x: auto;
+        }
+
+        #feedbackTable {
+            min-width: 820px;
+            table-layout: fixed;
+        }
+
+        #feedbackTable th,
+        #feedbackTable td {
+            vertical-align: top;
+            padding: 14px 12px;
+            line-height: 1.45;
+            overflow-wrap: anywhere;
+        }
+
+        #feedbackTable th:nth-child(1),
+        #feedbackTable td:nth-child(1) { width: 18%; }
+
+        #feedbackTable th:nth-child(2),
+        #feedbackTable td:nth-child(2) {
+            width: 21%;
+            word-break: break-word;
+        }
+
+        #feedbackTable th:nth-child(3),
+        #feedbackTable td:nth-child(3) {
+            width: 15%;
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        #feedbackTable th:nth-child(4),
+        #feedbackTable td:nth-child(4) { width: 28%; }
+
+        #feedbackTable th:nth-child(5),
+        #feedbackTable td:nth-child(5) {
+            width: 13%;
+            white-space: nowrap;
+        }
+
+        #feedbackTable th:nth-child(6),
+        #feedbackTable td:nth-child(6) {
+            width: 105px;
+            text-align: center;
+        }
+
+        #feedbackTable .status-badge {
+            margin: 0;
+            vertical-align: middle;
+        }
+
+        .booking-table-container {
+            overflow-x: auto;
+        }
+
+        #recentBookingsTable,
+        #usersTable {
+            min-width: 1750px;
+            table-layout: auto;
+        }
+
+        #recentBookingsTable th,
+        #recentBookingsTable td,
+        #usersTable th,
+        #usersTable td {
+            padding: 13px 11px;
+            vertical-align: middle;
+            line-height: 1.45;
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+
+        #recentBookingsTable th:nth-child(1),
+        #recentBookingsTable td:nth-child(1),
+        #usersTable th:nth-child(1),
+        #usersTable td:nth-child(1) { min-width: 150px; }
+
+        #recentBookingsTable th:nth-child(2),
+        #recentBookingsTable td:nth-child(2),
+        #usersTable th:nth-child(2),
+        #usersTable td:nth-child(2) { min-width: 175px; }
+
+        #recentBookingsTable th:nth-child(7),
+        #recentBookingsTable td:nth-child(7),
+        #usersTable th:nth-child(7),
+        #usersTable td:nth-child(7) { min-width: 125px; }
+
+        #recentBookingsTable th:nth-child(11),
+        #recentBookingsTable td:nth-child(11),
+        #usersTable th:nth-child(11),
+        #usersTable td:nth-child(11) { min-width: 180px; }
+
+        .booking-truck-image {
+            display: block;
+            width: 94px;
+            height: 66px;
+            object-fit: cover;
+            object-position: center;
+            border: 1px solid #b9d5e8;
+            border-radius: 8px;
+            background: #eef2f7;
+            overflow: hidden;
+        }
+
+        .booking-customer-name {
+            display: block;
+            margin-bottom: 3px;
+            color: #b9f1e4;
+            font-weight: 800;
+        }
+
+        .booking-contact {
+            display: block;
+            color: #b9d9d3;
+            font-size: 12px;
+        }
+
+        .payment-truck-image {
+            width: 92px;
+            height: 66px;
+            object-fit: cover;
+            border: 1px solid #b9d5e8;
+            border-radius: 8px;
+            background: #eef2f7;
+        }
+
+        .payment-print-button {
+            min-width: 92px;
+            padding: 9px 11px;
+            border: 0;
+            border-radius: 8px;
+            background: #d9e9ff;
+            color: #2057a8;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .payment-print-button:hover {
+            filter: brightness(0.95);
+            transform: translateY(-1px);
+        }
+
+        .truck-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 132px;
+            min-height: 40px;
+            border: 0;
+            border-radius: 8px;
+            padding: 9px 14px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.25;
+            text-align: center;
+            white-space: normal;
+            transition: .2s;
+        }
+
+        .truck-action.edit { background: #dbeafe; color: #1e40af; text-decoration: none; }
+        .truck-action.toggle { background: #fef3c7; color: #92400e; }
+        .truck-action.delete { background: #fee2e2; color: #991b1b; }
+        .truck-action.release { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
+        .booking-action { min-width: 175px; margin-top: 10px; }
+        .booking-action.return { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .booking-action.available { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .truck-action:hover { filter: brightness(0.95); transform: translateY(-1px); }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        /* ============================================
+           LOADING
+           ============================================ */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c7a92;
+        }
+
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1e3c72;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ============================================
+           RESPONSIVE
+           ============================================ */
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+            }
+
+            .tab-btn {
+                padding: 12px 16px;
+            }
+
+            table {
+                font-size: 14px;
+            }
+
+            table th, table td {
+                padding: 10px 8px;
+            }
+
+            .navbar {
+                flex-direction: column;
+                height: auto;
+                padding: 15px 20px;
+                gap: 15px;
+            }
+
+            .nav-right {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Admin theme: charcoal, teal, and coral for a calmer control surface. */
+        body { color: #e7f6f2; }
+        .navbar { background: rgba(15, 35, 33, 0.94); border-bottom: 1px solid rgba(112, 211, 193, 0.22); }
+        .logo { color: #8fe0cf; background: none; }
+        .nav-right a:hover { background: rgba(112, 211, 193, 0.14); }
+        .page-title, .stat-value, .tab-btn:hover, .tab-btn.active { color: #b9f1e4; }
+        .tab-btn.active { border-bottom-color: #ef806b; }
+        .tabs { border-bottom-color: rgba(115, 214, 194, 0.28); }
+        .stat-card { background: rgba(17, 55, 53, 0.9); border-left-color: #73d6c2; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22); }
+        .stat-label { color: #a6d8cf; }
+        .table-container { background: rgba(12, 42, 41, 0.92); border: 1px solid rgba(115, 214, 194, 0.24); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22); }
+        table th { color: #b9f1e4; background: rgba(29, 82, 78, 0.82); border-bottom-color: rgba(115, 214, 194, 0.26); }
+        table td { color: #e2f7f2; border-bottom-color: rgba(115, 214, 194, 0.14); }
+        table tr:hover { background: rgba(115, 214, 194, 0.09); }
+        .empty-state, .loading { color: #b9d9d3; }
+        .loader { border-top-color: #43a99a; }
+        .truck-action.edit { background: #d9f0eb; color: #16665d; }
+        .truck-action.toggle { background: #fff0d6; color: #9a5b17; }
+        .truck-action.delete { background: #fde0da; color: #a33e2e; }
+        .truck-action.release { background: #d9e9ff; color: #2057a8; }
+        .booking-action.return { background: #d9f3e3; color: #17643b; }
+        .booking-action.available { background: #fff0d6; color: #9a5b17; }
+        .header-action { background: #ef806b; color: #fff; text-decoration: none; padding: 11px 16px; border-radius: 8px; font-weight: 700; }
+        .header-action:hover { background: #d96654; }
+
+        .feedback-delete-button {
+            border: 0;
+            border-radius: 8px;
+            padding: 9px 12px;
+            color: #991b1b;
+            background: #fee2e2;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .feedback-delete-button:hover {
+            filter: brightness(.95);
+            transform: translateY(-1px);
+        }
+
+        .driver-form {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(150px, 1fr)) minmax(180px, 1fr) auto;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 18px;
+            padding: 18px;
+            background: rgba(7, 85, 104, .35);
+            border: 1px solid rgba(115, 214, 194, .25);
+            border-radius: 12px;
+        }
+
+        .driver-form label { display: grid; gap: 6px; color: #d7eee9; font-size: 13px; font-weight: 800; }
+        .driver-form input { min-height: 44px; padding: 10px 12px; border: 1px solid #b9d5e8; border-radius: 8px; font-size: 14px; }
+        .driver-form input[type="file"] { padding: 8px; background: #fff; }
+        .driver-form select { min-height: 44px; padding: 10px 12px; border: 1px solid #b9d5e8; border-radius: 8px; font-size: 14px; }
+        .driver-photo { width: 46px; height: 46px; object-fit: cover; border-radius: 50%; border: 2px solid #9fc9c1; vertical-align: middle; }
+        .driver-photo-placeholder { display: inline-grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: #d9f0eb; color: #16665d; font-weight: 800; vertical-align: middle; }
+        .driver-table-container { overflow-x: auto; }
+        #driversTable { min-width: 850px; }
+        .driver-status { color: #17643b; font-weight: 800; }
+        .driver-status.on-duty { color: #b42318; }
+        .driver-status.at-rest { color: yellow; }
+        .driver-status.available { color: #50fca0; }
+        .assignment-select { min-width: 145px; padding: 8px; border: 1px solid #b9d5e8; border-radius: 8px; font-size: 13px; }
+        .driver-action-button { margin: 3px; padding: 8px 10px; border: 0; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .driver-action-button.assign { color: #16665d; background: #d9f0eb; }
+        .driver-action-button.delete { color: #991b1b; background: #fee2e2; }
+        @media (max-width: 850px) { .driver-form { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 520px) { .driver-form { grid-template-columns: 1fr; } }
+
+        /* Final readability pass for the admin workspace. */
+        .container {
+            max-width: 1520px;
+            padding: 28px 24px 48px;
+        }
+
+        .page-title {
+            margin-bottom: 22px;
+            font-size: 30px;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            min-height: 118px;
+            padding: 20px 22px;
+        }
+
+        .stat-label,
+        .management-filter label,
+        .management-filter select,
+        .filter-button {
+            font-size: 15px;
+        }
+
+        .tabs {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(135px, 1fr));
+            gap: 6px;
+            margin-bottom: 22px;
+            padding: 6px;
+            border: 1px solid rgba(115, 214, 194, 0.28);
+            border-radius: 12px;
+            background: rgba(12, 42, 41, 0.72);
+        }
+
+        .tab-btn,
+        .tab-btn.active {
+            min-height: 48px;
+            padding: 12px 14px;
+            border: 0;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.25;
+            white-space: normal;
+        }
+
+        .tab-btn.active {
+            color: #092e38;
+            background: #8fe0cf;
+        }
+
+        .management-filter {
+            flex-wrap: wrap;
+            padding: 16px 18px;
+        }
+
+        .management-filter select {
+            min-height: 46px;
+        }
+
+        .filter-button {
+            min-height: 46px;
+            padding: 10px 18px;
+        }
+
+        .table-container {
+            padding: 18px;
+        }
+
+        table th {
+            padding: 14px 12px;
+            font-size: 14px;
+            line-height: 1.35;
+        }
+
+        table td {
+            padding: 14px 12px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        #recentBookingsTable th,
+        #recentBookingsTable td,
+        #usersTable th,
+        #usersTable td,
+        #paymentsTable th,
+        #paymentsTable td,
+        #feedbackTable th,
+        #feedbackTable td {
+            font-size: 14px;
+        }
+
+        #recentBookingsTable,
+        #usersTable {
+            min-width: 1650px;
+        }
+
+        #paymentsTable {
+            min-width: 1850px;
+        }
+
+        .booking-truck-image,
+        .payment-truck-image {
+            width: 100px;
+            height: 72px;
+        }
+
+        .status-badge {
+            padding: 7px 11px;
+            font-size: 13px;
+        }
+
+        .truck-action,
+        .feedback-delete-button,
+        .payment-print-button {
+            font-size: 13px;
+        }
+
+        @media (max-width: 1100px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .tabs {
+                grid-template-columns: repeat(3, minmax(135px, 1fr));
+            }
+        }
+
+        @media (max-width: 680px) {
+            .container {
+                padding: 20px 12px 36px;
+            }
+
+            .stats-grid,
+            .tabs {
+                grid-template-columns: 1fr;
+            }
+
+            .page-title {
+                font-size: 26px;
+            }
+
+            .table-container {
+                padding: 12px;
+            }
+        }
+
+        .users-workspace {
+            display: grid;
+            grid-template-columns: minmax(250px, 310px) minmax(0, 1fr);
+            height: 560px;
+            min-height: 560px;
+            overflow: hidden;
+            border: 1px solid rgba(115, 214, 194, 0.24);
+            border-radius: 14px;
+            background: rgba(12, 42, 41, 0.92);
+        }
+        .users-sidebar {
+            min-height: 0;
+            padding: 14px;
+            border-right: 1px solid rgba(115, 214, 194, 0.2);
+            background: rgba(7, 35, 37, 0.72);
+            overflow-y: auto;
+        }
+        .users-sidebar-title {
+            display: flex;
+            justify-content: space-between;
+            margin: 2px 4px 12px;
+            color: #b9f1e4;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: .6px;
+            text-transform: uppercase;
+        }
+        .user-booking-item {
+            display: grid;
+            grid-template-columns: 58px minmax(0, 1fr);
+            gap: 10px;
+            width: 100%;
+            margin-bottom: 8px;
+            padding: 9px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, .045);
+            color: #e2f7f2;
+            text-align: left;
+            cursor: pointer;
+        }
+        .user-booking-item:hover,
+        .user-booking-item.is-selected { border-color: #73d6c2; background: rgba(115, 214, 194, .16); }
+        .user-booking-item img { width: 58px; height: 48px; border-radius: 7px; object-fit: cover; }
+        .user-booking-item strong,
+        .user-booking-item small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .user-booking-item strong { color: #f3bd61; font-size: 13px; }
+        .user-booking-item small { margin-top: 4px; color: #b9d9d3; font-size: 12px; }
+        .user-detail-panel { min-width: 0; min-height: 0; padding: 24px; overflow-y: auto; overflow-x: hidden; }
+        .user-detail-empty { display: grid; min-height: 470px; place-items: center; color: #a9c7c4; text-align: center; }
+        .user-detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; padding-bottom: 18px; border-bottom: 1px solid rgba(143, 224, 207, .18); }
+        .user-detail-header h3 { color: #e7f6f2; font-size: 23px; }
+        .user-detail-header p { margin-top: 5px; color: #a9c7c4; }
+        .user-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+        .user-detail-section { padding: 15px; border: 1px solid rgba(143, 224, 207, .18); border-radius: 10px; background: rgba(22, 59, 68, .72); }
+        .user-detail-section.wide { grid-column: 1 / -1; }
+        .user-detail-section h4 { margin-bottom: 11px; color: #f3bd61; font-size: 13px; text-transform: uppercase; letter-spacing: .6px; }
+        .user-detail-section p { margin: 7px 0; color: #d9f4ed; overflow-wrap: anywhere; }
+        .user-detail-section p span { color: #8eb9b2; }
+        .user-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+        @media (max-width: 800px) { .users-workspace { height: auto; min-height: 0; grid-template-columns: 1fr; } .users-sidebar { max-height: 260px; border-right: 0; border-bottom: 1px solid rgba(115, 214, 194, .2); } .user-detail-panel { max-height: none; overflow: visible; } }
+        @media (max-width: 560px) { .user-detail-panel { padding: 16px; } .user-detail-grid { grid-template-columns: 1fr; } .user-detail-section.wide { grid-column: auto; } .user-detail-header { flex-direction: column; } }
+
+        /* Admin shell styling. */
+        :root {
+            --wp-sidebar: #1d2327;
+            --wp-sidebar-hover: #2c3338;
+            --wp-blue: #168dcc;
+            --wp-blue-dark: #0876ad;
+            --wp-bg: #f0f0f1;
+            --wp-panel: #ffffff;
+            --wp-border: #dcdcde;
+            --wp-text: #1d2327;
+            --wp-muted: #646970;
+        }
+
+        body {
+            background: var(--wp-bg) !important;
+            color: var(--wp-text) !important;
+            padding-left: 220px;
+        }
+
+        body::before { display: none; }
+        .navbar {
+            position: fixed;
+            inset: 0 0 auto 220px;
+            height: 52px;
+            z-index: 500;
+            padding: 0 22px;
+            background: var(--wp-blue) !important;
+            border: 0;
+            border-radius: 0;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, .16);
+        }
+        .navbar .logo { color: #fff !important; font-size: 17px; letter-spacing: 0; }
+        .nav-right { gap: 6px; }
+        .nav-right a { padding: 7px 10px; border-radius: 3px; font-size: 12px; }
+        .nav-right .header-action { background: rgba(255, 255, 255, .14); }
+
+        .admin-sidebar {
+            position: fixed;
+            inset: 0 auto 0 0;
+            z-index: 600;
+            display: flex;
+            width: 220px;
+            flex-direction: column;
+            background: var(--wp-sidebar);
+            color: #f0f0f1;
+            box-shadow: 1px 0 0 rgba(0, 0, 0, .18);
+        }
+        .admin-sidebar-brand {
+            display: flex;
+            min-height: 52px;
+            align-items: center;
+            padding: 0 17px;
+            border-bottom: 1px solid #3c4348;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 700;
+        }
+        .admin-sidebar-brand span { color: #72c9ef; }
+        .admin-sidebar-nav { padding: 10px 0; overflow-y: auto; }
+        .admin-sidebar-nav button {
+            display: flex;
+            width: 100%;
+            min-height: 41px;
+            align-items: center;
+            gap: 11px;
+            padding: 0 17px;
+            border: 0;
+            border-left: 3px solid transparent;
+            background: transparent;
+            color: #c3c4c7;
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+        }
+        .admin-sidebar-nav button:hover,
+        .admin-sidebar-nav button.is-active { border-left-color: #72c9ef; background: var(--wp-sidebar-hover); color: #fff; }
+        .admin-sidebar-nav .nav-icon { width: 18px; color: #9da3a8; font-size: 15px; text-align: center; }
+        .admin-sidebar-nav button.is-active .nav-icon { color: #72c9ef; }
+        .admin-sidebar-footer { margin-top: auto; padding: 14px 17px; border-top: 1px solid #3c4348; color: #8c8f94; font-size: 11px; line-height: 1.5; }
+
+        .container { max-width: none; padding: 78px 28px 42px; }
+        .page-title { margin-bottom: 20px; color: var(--wp-text) !important; font-size: 24px; font-weight: 500; }
+        .stats-grid { grid-template-columns: repeat(6, minmax(130px, 1fr)); gap: 12px; margin-bottom: 22px; }
+        .stat-card { min-height: 98px; padding: 16px; border: 1px solid var(--wp-border); border-left: 4px solid var(--wp-blue); border-radius: 2px; background: var(--wp-panel); box-shadow: none; }
+        .stat-card:hover { transform: none; box-shadow: 0 1px 2px rgba(0, 0, 0, .06); }
+        .stat-label { color: var(--wp-muted) !important; font-size: 11px; }
+        .stat-value { color: var(--wp-text) !important; font-size: 23px; }
+        .tabs { display: none; }
+        .management-filter { padding: 12px 14px; border: 1px solid var(--wp-border); border-radius: 2px; background: var(--wp-panel); box-shadow: none; }
+        .management-filter label { color: var(--wp-text); font-size: 13px; }
+        .management-filter select { min-height: 36px; min-width: 200px; padding: 7px 10px; border: 1px solid #8c8f94; border-radius: 2px; background: #fff; color: var(--wp-text); font-size: 13px; }
+        .filter-button { min-height: 36px; padding: 7px 13px; border-radius: 2px; background: var(--wp-blue-dark); font-size: 12px; }
+        .filter-button.clear { background: #646970; }
+        .tab-content { padding: 0; }
+        .table-container, .users-workspace { border: 1px solid var(--wp-border); border-radius: 2px; background: var(--wp-panel); box-shadow: none; }
+        .table-container { padding: 18px; }
+        .users-workspace { background: #fff; }
+        table th { background: #f6f7f7 !important; color: var(--wp-text) !important; border-bottom: 1px solid var(--wp-border) !important; }
+        table td { color: var(--wp-text) !important; border-bottom: 1px solid #f0f0f1; }
+        table tr:hover { background: #f6f7f7 !important; }
+        .users-sidebar { background: #f6f7f7; border-right-color: var(--wp-border); }
+        .users-sidebar-title { color: var(--wp-text); }
+        .user-booking-item { background: #fff; color: var(--wp-text); border-color: var(--wp-border); }
+        .user-booking-item strong { color: var(--wp-blue-dark); }
+        .user-booking-item small { color: var(--wp-muted); }
+        .user-booking-item:hover, .user-booking-item.is-selected { border-color: var(--wp-blue); background: #eaf6fc; }
+        .user-detail-panel { background: #fff; }
+        .user-detail-header h3, .user-detail-section p { color: var(--wp-text); }
+        .user-detail-header p, .user-detail-section p span { color: var(--wp-muted); }
+        .user-detail-section { border-color: var(--wp-border); border-radius: 2px; background: #fff; }
+        .user-detail-section h4 { color: var(--wp-blue-dark); }
+
+        @media (max-width: 1100px) { .stats-grid { grid-template-columns: repeat(3, minmax(130px, 1fr)); } }
+        @media (max-width: 700px) {
+            body { padding-left: 0; }
+            .admin-sidebar { position: static; width: 100%; }
+            .admin-sidebar-brand { min-height: 48px; }
+            .admin-sidebar-nav { display: grid; grid-template-columns: repeat(3, 1fr); max-height: 145px; overflow-y: auto; }
+            .admin-sidebar-nav button { min-height: 38px; padding: 0 10px; font-size: 11px; }
+            .admin-sidebar-footer { display: none; }
+            .navbar { position: static; margin: 0; inset: auto; }
+            .nav-right a { font-size: 11px; }
+            .container { padding: 24px 12px 30px; }
+            .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        /* Restore the original charcoal and teal admin palette. */
+        body { background: #101827 !important; color: #e7f6f2 !important; }
+        body::before { display: block; background: linear-gradient(135deg, rgba(8, 17, 38, .88), rgba(20, 28, 48, .72)); }
+        .navbar { background: rgba(15, 35, 33, .94) !important; border-bottom: 1px solid rgba(112, 211, 193, .22); }
+        .navbar .logo { color: #8fe0cf !important; }
+        .nav-right .header-action { background: #ef806b; }
+        .admin-sidebar { background: #102f38; border-right: 1px solid rgba(143, 224, 207, .2); }
+        .admin-sidebar-brand { border-bottom-color: rgba(143, 224, 207, .2); color: #e7f6f2; }
+        .admin-sidebar-brand span { color: #f3bd61; }
+        .admin-sidebar-nav button { color: #b9d9d3; }
+        .admin-sidebar-nav button:hover,
+        .admin-sidebar-nav button.is-active { border-left-color: #ef806b; background: rgba(115, 214, 194, .14); color: #fff; }
+        .admin-sidebar-nav button.is-active .nav-icon { color: #f3bd61; }
+        .admin-sidebar-footer { border-top-color: rgba(143, 224, 207, .2); color: #8eb9b2; }
+        .admin-sidebar-link { display: flex; min-height: 41px; align-items: center; gap: 11px; padding: 0 17px; border-left: 3px solid transparent; color: #b9d9d3; font-size: 13px; text-decoration: none; }
+        .admin-sidebar-link:hover { border-left-color: #ef806b; background: rgba(115, 214, 194, .14); color: #fff; }
+        .admin-sidebar-link .nav-icon { width: 18px; color: #f3bd61; font-size: 15px; text-align: center; }
+        .container { color: #e7f6f2; }
+        .page-title { color: #b9f1e4 !important; }
+        .stat-card { border-color: rgba(115, 214, 194, .24); border-left-color: #73d6c2; background: rgba(17, 55, 53, .9); box-shadow: 0 8px 24px rgba(0, 0, 0, .22); }
+        .stat-label { color: #a6d8cf !important; }
+        .stat-value { color: #b9f1e4 !important; }
+        .management-filter { border-color: rgba(115, 214, 194, .22); background: rgba(17, 55, 53, .9); }
+        .management-filter label { color: #d7eee9; }
+        .management-filter select { border-color: rgba(143, 224, 207, .3); background: #16353d; color: #effffb; }
+        .filter-button { background: #1e3c72; }
+        .filter-button.clear { background: #6c7a92; }
+        .table-container, .users-workspace { border-color: rgba(115, 214, 194, .24); background: rgba(12, 42, 41, .92); }
+        table th { background: rgba(29, 82, 78, .82) !important; color: #b9f1e4 !important; border-bottom-color: rgba(115, 214, 194, .26) !important; }
+        table td { color: #e2f7f2 !important; border-bottom-color: rgba(115, 214, 194, .14); }
+        table tr:hover { background: rgba(115, 214, 194, .09) !important; }
+        .users-sidebar { background: rgba(7, 35, 37, .72); border-right-color: rgba(115, 214, 194, .2); }
+        .users-sidebar-title { color: #b9f1e4; }
+        .user-booking-item { border-color: transparent; background: rgba(255, 255, 255, .045); color: #e2f7f2; }
+        .user-booking-item strong { color: #f3bd61; }
+        .user-booking-item small { color: #b9d9d3; }
+        .user-booking-item:hover, .user-booking-item.is-selected { border-color: #73d6c2; background: rgba(115, 214, 194, .16); }
+        .user-detail-panel { background: rgba(12, 42, 41, .92); }
+        .user-detail-header h3, .user-detail-section p { color: #e7f6f2; }
+        .user-detail-header p, .user-detail-section p span { color: #a9c7c4; }
+        .user-detail-section { border-color: rgba(143, 224, 207, .18); background: rgba(22, 59, 68, .72); }
+        .user-detail-section h4 { color: #f3bd61; }
+        .loading, .empty-state { color: #b9d9d3; }
+        .navbar .nav-right { display: flex; }
+        .navbar .nav-right .header-action { display: none; }
+        .navbar .nav-right a[href*="mode=logout"] { border: 1px solid rgba(237, 118, 95, .45); border-radius: 7px; background: rgba(237, 118, 95, .12); color: #ffd3c8; font-size: 12px; font-weight: 700; }
+        .navbar .nav-right a[href*="mode=logout"]:hover { background: rgba(237, 118, 95, .24); color: #fff; }
+    </style>
+</head>
+<body>
+    <script>
+        fetch('admin_session.php', { credentials: 'same-origin' })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.authenticated) {
+                    window.location.replace('admin_access.php?mode=login');
+                    return;
+                }
+                document.getElementById('adminName').textContent = data.admin_name ? `Hi, ${data.admin_name}` : 'Admin';
+                document.body.classList.add('admin-ready');
+            })
+            .catch(() => window.location.replace('admin_access.php?mode=login'));
+    </script>
+
+    <aside class="admin-sidebar" aria-label="Admin navigation">
+        <div class="admin-sidebar-brand">RENTAL <span>TRUCK SYSTEM</span></div>
+        <nav class="admin-sidebar-nav">
+            <button type="button" class="is-active" data-admin-tab="recent"><span class="nav-icon">&#9632;</span>Recent Bookings</button>
+            <button type="button" data-admin-tab="trucks"><span class="nav-icon">&#128666;</span>Truck Status</button>
+            <button type="button" data-admin-tab="users"><span class="nav-icon">&#128101;</span>Manage Users</button>
+            <button type="button" data-admin-tab="payments"><span class="nav-icon">&#128179;</span>Payments</button>
+            <button type="button" data-admin-tab="feedback"><span class="nav-icon">&#9993;</span>Feedback</button>
+            <button type="button" data-admin-tab="drivers"><span class="nav-icon">&#128104;</span>Drivers</button>
+            <a class="admin-sidebar-link" href="truck.php"><span class="nav-icon">+</span>Register Truck</a>
+          
+        </nav>
+        <div class="admin-sidebar-footer">Operations console<br>Rental Truck Management System</div>
+    </aside>
+
+    <!-- ============================================
+         NAVBAR
+         ============================================ -->
+    <nav class="navbar">
+        <div class="logo">ADMIN DASHBOARD</div>
+        <div class="nav-right">
+            <span id="adminName" style="color:#b9f1e4; font-size:13px; font-weight:700; padding:7px 10px;">Admin</span>
+            <a class="header-action" href="truck.php">+ Register New Truck</a>
+            <a href="admin_access.php?mode=logout" onclick="return confirmSignOut(event)">Sign Out</a>
+          
+        </div>
+    </nav>
+
+    <!-- ============================================
+         MAIN CONTAINER
+         ============================================ -->
+    <div class="container">
+        <div class="page-title">Dashboard Overview</div>
+
+        <!-- ============================================
+             STATS SECTION
+             ============================================ -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon"></div>
+                <div class="stat-label">Total Trucks</div>
+                <div class="stat-value" id="totalTrucks">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"></div>
+                <div class="stat-label">Available Trucks</div>
+                <div class="stat-value" id="availableTrucks">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"></div>
+                <div class="stat-label">Pending Maintenance</div>
+                <div class="stat-value" id="maintenanceTrucks">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"></div>
+                <div class="stat-label">Total Bookings</div>
+                <div class="stat-value" id="totalBookings">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"></div>
+                <div class="stat-label">Total Revenue</div>
+                <div class="stat-value" id="totalRevenue">0 TZS</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"></div>
+                <div class="stat-label">Active Bookings</div>
+                <div class="stat-value" id="activeBookings">0</div>
+            </div>
+        </div>
+
+        <!-- ============================================
+             TABS
+             ============================================ -->
+        <div class="tabs">
+            <button class="tab-btn active" type="button" onclick="showTab('recent', this)">Recent Bookings</button>
+            <button class="tab-btn" type="button" onclick="showTab('trucks', this)">Truck Status</button>
+            <button class="tab-btn" type="button" onclick="showTab('users', this)">Manage Users</button>
+            <button class="tab-btn" type="button" onclick="showTab('payments', this)">Completed Payments</button>
+            <button class="tab-btn" type="button" onclick="showTab('feedback', this)">User Feedback</button>
+            <button class="tab-btn" type="button" onclick="showTab('drivers', this)">Manage Drivers</button>
+        </div>
+
+        <!-- ============================================
+             TAB 1: RECENT BOOKINGS
+             ============================================ -->
+        <div id="recent" class="tab-content active">
+            <div class="management-filter">
+                <label for="recentCargoFilter">Find recent bookings by cargo type</label>
+                <select id="recentCargoFilter">
+                    <option value="">All cargo types</option>
+                    <option value="Heavy trucks">Heavy trucks</option>
+                    <option value="Meat van">Meat van</option>
+                    <option value="Refrigerated vans">Refrigerated vans</option>
+                    <option value="Town ice">Town ice</option>
+                    <option value="Guta">Guta</option>
+                </select>
+                <button type="button" class="filter-button" onclick="loadRecentBookings()">Search</button>
+                <button type="button" class="filter-button clear" onclick="clearCargoFilter('recent')">Clear</button>
+            </div>
+            <div class="table-container booking-table-container">
+                <div id="recentBookingsLoading" class="loading">
+                    <div class="loader"></div>
+                    Loading bookings...
+                </div>
+                <table id="recentBookingsTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Truck Image</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Booked Truck</th>
+                            <th>Plate</th>
+                            <th>Capacity</th>
+                            <th>Fuel Type</th>
+                            <th>Cargo Type</th>
+                            <th>Booking Status</th>
+                            <th>Distance</th>
+                            <th>Cost</th>
+                            <th>Date</th>
+                           
+                        </tr>
+                    </thead>
+                    <tbody id="recentBookingsBody"></tbody>
+                </table>
+                <div id="recentBookingsEmpty" class="empty-state" style="display:none;">
+                    <div class="empty-state-icon">📭</div>
+                    <p>No bookings found</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================
+             TAB 2: TRUCK STATUS
+             ============================================ -->
+        <div id="trucks" class="tab-content">
+            <div class="management-filter">
+                <label for="truckCargoFilter">Search trucks by cargo type</label>
+                <select id="truckCargoFilter">
+                    <option value="">All cargo types</option>
+                    <option value="Heavy trucks">Heavy trucks</option>
+                    <option value="Meat van">Meat van</option>
+                    <option value="Refrigerated vans">Refrigerated vans</option>
+                    <option value="Town ice">Town ice</option>
+                    <option value="Guta">Guta</option>
+                </select>
+                <button type="button" class="filter-button" onclick="loadTrucks()">Search</button>
+                <button type="button" class="filter-button clear" onclick="clearCargoFilter('truck')">Clear</button>
+            </div>
+            <div class="table-container">
+                <div id="trucksLoading" class="loading">
+                    <div class="loader"></div>
+                    Loading trucks...
+                </div>
+                <table id="trucksTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Image</th>
+                            <th>Truck Name</th>
+                            <th>Plate Number</th>
+                            <th>Capacity</th>
+                            <th>Fuel Type</th>
+                            <th>Cargo Type</th>
+                            <th>Status</th>
+                            <th>Price/KM</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trucksBody"></tbody>
+                </table>
+                <div id="trucksEmpty" class="empty-state" style="display:none;">
+                    <div class="empty-state-icon">🔍</div>
+                    <p>No trucks found</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================
+             TAB 3: MANAGE USERS
+             ============================================ -->
+        <div id="users" class="tab-content">
+            <div class="management-filter">
+                <label for="userCargoFilter">Find users by booked cargo type</label>
+                <select id="userCargoFilter">
+                    <option value="">All cargo types</option>
+                    <option value="Heavy trucks">Heavy trucks</option>
+                    <option value="Meat van">Meat van</option>
+                    <option value="Refrigerated vans">Refrigerated vans</option>
+                    <option value="Town ice">Town ice</option>
+                    <option value="Guta">Guta</option>
+                </select>
+                <button type="button" class="filter-button" onclick="loadAllBookings()">Search</button>
+                <button type="button" class="filter-button clear" onclick="clearCargoFilter('user')">Clear</button>
+            </div>
+            <div class="users-workspace">
+                <div id="usersLoading" class="loading">
+                    <div class="loader"></div>
+                    Loading users...
+                </div>
+                <aside class="users-sidebar" id="usersSidebar" style="display:none;"><div class="users-sidebar-title"><span>Bookings</span><span id="usersCount">0</span></div><div id="usersBody"></div></aside>
+                <section class="user-detail-panel" id="userDetailPanel" style="display:none;"><div id="userDetail"></div></section>
+                <div id="usersEmpty" class="empty-state" style="display:none; grid-column:1 / -1;"><div class="empty-state-icon">&#128101;</div><p>No users found</p></div>
+                
+            </div>
+        </div>
+
+        <!-- ============================================
+             TAB 4: COMPLETED PAYMENTS
+             ============================================ -->
+        <div id="payments" class="tab-content">
+            <div class="management-filter">
+                <label for="paymentCargoFilter">Find paid bookings by cargo type</label>
+                <select id="paymentCargoFilter">
+                    <option value="">All cargo types</option>
+                    <option value="Heavy trucks">Heavy trucks</option>
+                    <option value="Meat van">Meat van</option>
+                    <option value="Refrigerated vans">Refrigerated vans</option>
+                    <option value="Town ice">Town ice</option>
+                    <option value="Guta">Guta</option>
+                </select>
+                <button type="button" class="filter-button" onclick="loadCompletedPayments()">Search</button>
+                <button type="button" class="filter-button clear" onclick="clearCargoFilter('payment')">Clear</button>
+            </div>
+            <div class="table-container payment-table-container">
+                <div id="paymentsLoading" class="loading">
+                    <div class="loader"></div>
+                    Loading completed payments...
+                </div>
+                <table id="paymentsTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Booking</th>
+                            <th>Customer</th>
+                            <th>Contact</th>
+                            <th>Truck Image</th>
+                            <th>Truck</th>
+                            <th>Plate</th>
+                            <th>Cargo</th>
+                            <th>Pickup</th>
+                            <th>Destination</th>
+                            <th>Trip Date</th>
+                            <th>Payment Method</th>
+                            <th>Reference</th>
+                            <th>Customer Rides</th>
+                            <th>Full Cost</th>
+                            <th>Discount</th>
+                            <th>Amount</th>
+                            <th>Paid At</th>
+                            <th>Reference Copy</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paymentsBody"></tbody>
+                </table>
+                <div id="paymentsEmpty" class="empty-state" style="display:none;">
+                    <div class="empty-state-icon">💳</div>
+                    <p>No completed payments found</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================
+             TAB 5: USER FEEDBACK
+             ============================================ -->
+        <div id="feedback" class="tab-content">
+            <div class="table-container feedback-table-container">
+                <div id="feedbackLoading" class="loading">
+                    <div class="loader"></div>
+                    Loading user feedback...
+                </div>
+                <table id="feedbackTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th>Email</th>
+                            <th>Rating</th>
+                            <th>Feedback</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feedbackBody"></tbody>
+                </table>
+                <div id="feedbackEmpty" class="empty-state" style="display:none;">
+                    <div class="empty-state-icon">💬</div>
+                    <p>No feedback has been submitted yet</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- DRIVER MANAGEMENT -->
+         
+        <div id="drivers" class="tab-content">
+            <form id="driverForm" class="driver-form">
+                <input type="hidden" id="driverId" name="driver_id">
+                <label>Full name<input id="driverName" name="full_name" required></label>
+                <label>Phone<input id="driverPhone" name="phone" required></label>
+                <label>Email<input id="driverEmail" name="email" type="email"></label>
+                <label>License number<input id="driverLicense" name="license_number" required></label>
+                <label>Driver photo<input id="driverPhoto" name="photo" type="file" accept="image/jpeg,image/png,image/webp"></label>
+                <label>Status<select id="driverStatus" name="status"><option value="available">Available</option><option value="on_duty">On duty</option><option value="at_rest">Unavailable</option></select></label>
+                <button type="submit" class="filter-button">Save Driver</button>
+            </form>
+            <div class="table-container driver-table-container">
+                <div id="driversLoading" class="loading"><div class="loader"></div>Loading drivers...</div>
+                <table id="driversTable" style="display:none;">
+                    <thead><tr><th>Photo</th><th>Name</th><th>Phone</th><th>Email</th><th>License</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody id="driversBody"></tbody>
+                </table>
+                <div id="driversEmpty" class="empty-state" style="display:none;"><div class="empty-state-icon">🚚</div><p>No drivers registered yet</p></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ============================================
+         JAVASCRIPT
+         ============================================ -->
+    <script>
+        // ================================================================
+        // TAB SWITCHING
+        // ================================================================
+        window.adminDrivers = [];
+
+        function showTab(tabName, selectedButton) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Deactivate all buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('[data-admin-tab]').forEach(item => {
+                item.classList.toggle('is-active', item.dataset.adminTab === tabName);
+            });
+            
+            // Show selected tab and activate button
+            document.getElementById(tabName).classList.add('active');
+            selectedButton.classList.add('active');
+            
+            // Load data for tab
+            if (tabName === 'recent') loadRecentBookings();
+            else if (tabName === 'trucks') loadTrucks();
+            else if (tabName === 'users') { loadDrivers().then(loadAllBookings).catch(loadAllBookings); }
+            else if (tabName === 'payments') loadCompletedPayments();
+            else if (tabName === 'feedback') loadFeedback();
+            else if (tabName === 'drivers') loadDrivers();
+        }
+
+        document.querySelectorAll('[data-admin-tab]').forEach(button => {
+            button.addEventListener('click', function () {
+                const tabName = this.dataset.adminTab;
+                document.querySelectorAll('[data-admin-tab]').forEach(item => item.classList.remove('is-active'));
+                this.classList.add('is-active');
+                document.querySelectorAll('.tab-content').forEach(tab => tab.classList.toggle('active', tab.id === tabName));
+                if (tabName === 'recent') loadRecentBookings();
+                else if (tabName === 'trucks') loadTrucks();
+                else if (tabName === 'users') { loadDrivers().then(loadAllBookings).catch(loadAllBookings); }
+                else if (tabName === 'payments') loadCompletedPayments();
+                else if (tabName === 'feedback') loadFeedback();
+                else if (tabName === 'drivers') loadDrivers();
+            });
+        });
+
+        // ================================================================
+        // LOAD DASHBOARD STATS
+        // ================================================================
+        function loadStats() {
+            fetch('api/admin_dashboard.php?action=stats')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const stats = data.stats;
+                        document.getElementById('totalTrucks').textContent = stats.total_trucks;
+                        document.getElementById('availableTrucks').textContent = stats.available_trucks;
+                        document.getElementById('maintenanceTrucks').textContent = stats.maintenance_trucks;
+                        document.getElementById('totalBookings').textContent = stats.total_bookings;
+                        document.getElementById('totalRevenue').textContent = Number(stats.total_revenue || 0).toLocaleString('en-US') + ' TZS';
+                        document.getElementById('activeBookings').textContent = stats.active_bookings ?? stats.recent_bookings.length;
+                    }
+                });
+        }
+
+        // ================================================================
+        // LOAD RECENT BOOKINGS
+        // ================================================================
+        function loadRecentBookings() {
+            const cargoType = document.getElementById('recentCargoFilter')?.value || '';
+            fetch(`api/admin_dashboard.php?action=stats&cargo_type=${encodeURIComponent(cargoType)}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('recentBookingsLoading').style.display = 'none';
+                    
+                    if (data.success && data.stats.recent_bookings.length > 0) {
+                        const tbody = document.getElementById('recentBookingsBody');
+                        window.adminRecentBookings = data.stats.recent_bookings;
+                        tbody.innerHTML = '';
+                        
+                        data.stats.recent_bookings.forEach(booking => {
+                            const row = `
+                                <tr>
+                                    <td><img class="booking-truck-image" src="${booking.image_url || 'image/volvo 3.jpg'}" alt="${booking.booked_truck_name || 'Booked truck'}" onerror="this.src='image/volvo 3.jpg'"></td>
+                                    <td>${booking.fullname}</td>
+                                    <td>${booking.email}</td>
+                                    <td>${booking.phone}</td>
+                                    <td>${booking.pickup}</td>
+                                    <td>${booking.destination}</td>
+                                    <td>${booking.booked_truck_name || 'Not linked'}</td>
+                                    <td>${booking.plate_number || '—'}</td>
+                                    <td>${booking.capacity || '—'} Tons</td>
+                                    <td>${booking.fuel_type || '—'}</td>
+                                    <td>${booking.cargo_type || '—'}</td>
+                                    <td>
+                                        <span class="status-badge status-unavailable">Active</span>
+                                        ${booking.pickup_lat && booking.destination_lat ? `<button type="button" class="route-view-button" onclick="viewBookingRoute(${booking.booking_id}, ${Number(booking.pickup_lat)}, ${Number(booking.pickup_lng)}, ${Number(booking.destination_lat)}, ${Number(booking.destination_lng)})">View route</button>` : ''}
+                                        <button type="button" class="agreement-view-button" onclick="viewAdminAgreement(window.adminRecentBookings[${data.stats.recent_bookings.indexOf(booking)}])">View Digital Agreement</button>
+                                        ${booking.truck_id ? `<button class="truck-action booking-action return" onclick="releaseBooking(${booking.booking_id}, '${String(booking.booked_truck_name || 'truck').replace(/'/g, "\\'")}')">Return Truck to Booking</button>` : '<span>Legacy booking</span>'}
+                                    </td>
+                                    <td>${booking.distance} km</td>
+                                    <td>${booking.cost} TZS</td>
+                                    <td>${new Date(booking.created_at).toLocaleDateString()}</td>
+                                </tr>
+                            `;
+                            tbody.innerHTML += row;
+                        });
+                        
+                        document.getElementById('recentBookingsTable').style.display = 'table';
+                    } else {
+                        document.getElementById('recentBookingsEmpty').style.display = 'block';
+                    }
+                });
+        }
+
+        // ================================================================
+        // LOAD ALL BOOKINGS (MANAGE USERS)
+        // ================================================================
+        function loadAllBookings() {
+            const cargoType = document.getElementById('userCargoFilter')?.value || '';
+            const sidebar = document.getElementById('usersSidebar');
+            const detailPanel = document.getElementById('userDetailPanel');
+            const emptyState = document.getElementById('usersEmpty');
+            const loading = document.getElementById('usersLoading');
+            sidebar.style.display = 'none';
+            detailPanel.style.display = 'none';
+            emptyState.style.display = 'none';
+            loading.style.display = 'block';
+            const controller = new AbortController();
+            const timeout = window.setTimeout(() => controller.abort(), 15000);
+            fetch(`api/admin_dashboard.php?action=bookings&cargo_type=${encodeURIComponent(cargoType)}`, { signal: controller.signal })
+                .then(res => res.json())
+                .then(data => {
+                    loading.style.display = 'none';
+                    
+                    if (data.success && data.bookings.length > 0) {
+                        const list = document.getElementById('usersBody');
+                        const detail = document.getElementById('userDetail');
+                        window.adminBookings = data.bookings;
+                        list.innerHTML = data.bookings.map((booking, index) => `
+                            <button type="button" class="user-booking-item${index === 0 ? ' is-selected' : ''}" data-booking-index="${index}">
+                                <img src="${escapePrintValue(booking.image_url || 'image/volvo 3.jpg')}" alt="${escapePrintValue(booking.booked_truck_name || 'Booked truck')}" onerror="this.src='image/volvo 3.jpg'">
+                                <span><strong>${escapePrintValue(booking.fullname)}</strong><small>#${booking.booking_id} · ${escapePrintValue(booking.pickup)} to ${escapePrintValue(booking.destination)}</small></span>
+                            </button>`).join('');
+                        document.getElementById('usersCount').textContent = data.bookings.length;
+                        function showUserBooking(index) {
+                            const booking = data.bookings[index];
+                            list.querySelectorAll('.user-booking-item').forEach(item => item.classList.toggle('is-selected', Number(item.dataset.bookingIndex) === index));
+                            const driver = booking.driver_name
+                                ? `<p>${booking.driver_photo_url ? `<img class="driver-photo" src="${escapePrintValue(booking.driver_photo_url)}" alt="${escapePrintValue(booking.driver_name)}"><br>` : ''}<strong>${escapePrintValue(booking.driver_name)}</strong><br>${escapePrintValue(booking.driver_phone || 'No phone')}<br>${escapePrintValue(booking.driver_email || 'No email')}<br>License: ${escapePrintValue(booking.driver_license || 'No license')}<br><button type="button" class="driver-action-button delete" onclick="removeDriverAssignment(${booking.booking_id})">Remove Assigned Driver</button></p>`
+                                : `<select class="assignment-select" id="driver-${booking.booking_id}"><option value="">Assign driver</option>${window.adminDrivers.filter(item => item.status === 'available').map(item => `<option value="${item.driver_id}">${escapePrintValue(item.full_name)}</option>`).join('')}</select><button type="button" class="driver-action-button assign" onclick="assignDriver(${booking.booking_id})">Assign driver</button>`;
+                            const routeButton = booking.pickup_lat && booking.destination_lat ? `<button type="button" class="route-view-button" onclick="viewBookingRoute(${booking.booking_id}, ${Number(booking.pickup_lat)}, ${Number(booking.pickup_lng)}, ${Number(booking.destination_lat)}, ${Number(booking.destination_lng)})">View route map</button>` : '';
+                            const agreementButton = `<button type="button" class="agreement-view-button" onclick="viewAdminAgreement(window.adminBookings[${index}])">View Digital Agreement</button>`;
+                            const returnButton = booking.booking_status === 'active' && booking.truck_id ? `<button class="truck-action booking-action return" onclick="releaseBooking(${booking.booking_id}, '${String(booking.booked_truck_name || 'truck').replace(/'/g, "\\'")}')">Return Truck to Booking</button>` : '';
+                            detail.innerHTML = `<div class="user-detail-header"><div><h3>${escapePrintValue(booking.fullname)}</h3><p>Booking #${booking.booking_id} · ${escapePrintValue(booking.email)}</p></div><span class="status-badge ${booking.booking_status === 'active' ? 'status-unavailable' : 'status-available'}">${escapePrintValue(booking.booking_status || 'active')}</span></div><div class="user-detail-grid"><section class="user-detail-section"><h4>Customer</h4><p><span>Email</span><br>${escapePrintValue(booking.email)}</p><p><span>Phone</span><br>${escapePrintValue(booking.phone)}</p></section><section class="user-detail-section"><h4>Trip</h4><p><span>From</span><br>${escapePrintValue(booking.pickup)}</p><p><span>To</span><br>${escapePrintValue(booking.destination)}</p><p><span>Date</span><br>${escapePrintValue(booking.trip_date)}</p></section><section class="user-detail-section"><h4>Truck</h4><p><span>Truck</span><br>${escapePrintValue(booking.booked_truck_name || 'Not linked')}</p><p><span>Plate / capacity</span><br>${escapePrintValue(booking.plate_number || '—')} · ${escapePrintValue(booking.capacity || '—')} Tons</p><p><span>Cargo / distance</span><br>${escapePrintValue(booking.cargo_type || '—')} · ${escapePrintValue(booking.distance)} km</p></section><section class="user-detail-section"><h4>Payment</h4><p><span>Full trip cost</span><br>${Number(booking.original_cost || booking.cost || 0).toLocaleString()} TZS</p><p><span>Discount</span><br>${Number(booking.discount_amount || 0).toLocaleString()} TZS</p><p><span>Amount paid</span><br>${Number(booking.cost || 0).toLocaleString()} TZS</p><p><span>Booking date</span><br>${new Date(booking.created_at).toLocaleDateString()}</p></section><section class="user-detail-section wide"><h4>Assigned driver</h4>${driver}<div class="user-detail-actions">${agreementButton}${routeButton}${returnButton}</div></section></div>`;
+                        }
+                        list.addEventListener('click', event => { const item = event.target.closest('.user-booking-item'); if (item) showUserBooking(Number(item.dataset.bookingIndex)); });
+                        showUserBooking(0);
+                        sidebar.style.display = 'block';
+                        detailPanel.style.display = 'block';
+                    } else {
+                        document.getElementById('usersEmpty').style.display = 'block';
+                    }
+                })
+                .catch(() => {
+                    loading.style.display = 'none';
+                    emptyState.style.display = 'block';
+                    emptyState.querySelector('p').textContent = 'Bookings could not be loaded. Please try again.';
+                    showAppAlert('Manage Users could not be loaded. Please try again.', 'Manage Users');
+                })
+                .finally(() => window.clearTimeout(timeout));
+        }
+
+        function clearCargoFilter(type) {
+            const filterId = type === 'truck'
+                ? 'truckCargoFilter'
+                : (type === 'user'
+                    ? 'userCargoFilter'
+                    : (type === 'payment' ? 'paymentCargoFilter' : 'recentCargoFilter'));
+            document.getElementById(filterId).value = '';
+            if (type === 'truck') {
+                loadTrucks();
+            } else if (type === 'user') {
+                loadAllBookings();
+            } else if (type === 'payment') {
+                loadCompletedPayments();
+            } else {
+                loadRecentBookings();
+            }
+        }
+
+        function confirmSignOut(event) {
+            event.preventDefault();
+            const destination = event.currentTarget.href;
+            showAppAlert('You are about to leave the admin dashboard.', 'Sign out');
+            window.setTimeout(() => { window.location.href = destination; }, 900);
+            return false;
+        }
+
+        // ================================================================
+        // LOAD COMPLETED PAYMENTS
+        // ================================================================
+        function loadCompletedPayments() {
+            const cargoType = document.getElementById('paymentCargoFilter')?.value || '';
+            fetch(`api/admin_dashboard.php?action=payments&cargo_type=${encodeURIComponent(cargoType)}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('paymentsLoading').style.display = 'none';
+                    document.getElementById('paymentsTable').style.display = 'none';
+                    document.getElementById('paymentsEmpty').style.display = 'none';
+
+                    if (!data.success || data.payments.length === 0) {
+                        document.getElementById('paymentsEmpty').style.display = 'block';
+                        return;
+                    }
+
+                    window.completedPayments = data.payments;
+                    const tbody = document.getElementById('paymentsBody');
+                    tbody.innerHTML = data.payments.map(payment => `
+                        <tr>
+                            <td>#${payment.booking_id || '—'}<br><span class="status-badge ${payment.booking_status === 'active' ? 'status-unavailable' : 'status-available'}">${payment.booking_status || '—'}</span><br>${payment.truck_status || '—'}</td>
+                            <td><strong>${payment.payer_name || '—'}</strong><br>${payment.payer_email || '—'}</td>
+                            <td>${payment.phone || payment.payment_phone || '—'}</td>
+                            <td><img class="payment-truck-image" src="${payment.image_url || 'image/volvo 3.jpg'}" alt="${payment.booked_truck_name || 'Booked truck'}" onerror="this.src='image/volvo 3.jpg'"></td>
+                            <td><strong>${payment.booked_truck_name || 'Not linked'}</strong><br>${payment.capacity || '—'} Tons, ${payment.fuel_type || '—'}</td>
+                            <td>${payment.plate_number || '—'}</td>
+                            <td>${payment.cargo_type || '—'}</td>
+                            <td>${payment.pickup || '—'}</td>
+                            <td>${payment.destination || '—'}</td>
+                            <td>${payment.trip_date || '—'}<br>${payment.distance || '—'} km</td>
+                            <td>${payment.method === 'mobile' ? `Mobile: ${payment.simcardprovider || '—'}<br>${payment.payment_phone || '—'}` : `Bank: ${payment.bankname || '—'}<br>${payment.account_number || '—'}`}</td>
+                            <td><strong>${payment.payment_reference || '—'}</strong><br><span class="status-badge status-available">${payment.payment_status}</span></td>
+                            <td>${payment.customer_booking_count || 0}</td>
+                            <td>${Number(payment.original_cost || payment.cost || 0).toLocaleString()} TZS</td>
+                            <td>${Number(payment.discount_amount || 0).toLocaleString()} TZS${Number(payment.discount_percent || 0) ? ` (${payment.discount_percent}%)` : ''}</td>
+                            <td>${Number(payment.amount || payment.cost || 0).toLocaleString()} TZS</td>
+                            <td>${payment.paid_at ? new Date(payment.paid_at).toLocaleString() : '—'}</td>
+                            <td><button type="button" class="payment-print-button" onclick="printCompletedPayment(${data.payments.indexOf(payment)})">🖨 Print</button></td>
+                        </tr>
+                    `).join('');
+                    document.getElementById('paymentsTable').style.display = 'table';
+                })
+                .catch(() => {
+                    document.getElementById('paymentsLoading').style.display = 'none';
+                    document.getElementById('paymentsEmpty').style.display = 'block';
+                    showAppAlert('Completed payment records could not be loaded. Please try again.', 'Payment records');
+                });
+        }
+
+        function loadFeedback() {
+            fetch('api/admin_dashboard.php?action=feedback')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('feedbackLoading').style.display = 'none';
+                    document.getElementById('feedbackTable').style.display = 'none';
+                    document.getElementById('feedbackEmpty').style.display = 'none';
+
+                    if (!data.success || data.feedback.length === 0) {
+                        document.getElementById('feedbackEmpty').style.display = 'block';
+                        return;
+                    }
+
+                    const tbody = document.getElementById('feedbackBody');
+                    tbody.innerHTML = data.feedback.map(item => `
+                        <tr>
+                            <td><strong>${escapePrintValue(item.full_name)}</strong></td>
+                            <td>${escapePrintValue(item.email)}</td>
+                            <td>${'★'.repeat(Number(item.rating || 0))} <small>(${item.rating}/5)</small></td>
+                            <td>${escapePrintValue(item.message)}</td>
+                            <td>${item.created_at ? new Date(item.created_at).toLocaleString() : '—'}</td>
+                            <td><button type="button" class="feedback-delete-button" onclick="deleteFeedback(${item.feedback_id})">Delete</button></td>
+                        </tr>
+                    `).join('');
+                    document.getElementById('feedbackTable').style.display = 'table';
+                })
+                .catch(() => {
+                    document.getElementById('feedbackLoading').style.display = 'none';
+                    document.getElementById('feedbackEmpty').style.display = 'block';
+                    showAppAlert('User feedback could not be loaded. Please try again.', 'Feedback records');
+                });
+        }
+
+        function loadDrivers() {
+            return fetch('api/admin_dashboard.php?action=drivers')
+                .then(response => response.json())
+                .then(data => {
+                    window.adminDrivers = data.drivers || [];
+                    document.getElementById('driversLoading').style.display = 'none';
+                    document.getElementById('driversTable').style.display = 'none';
+                    document.getElementById('driversEmpty').style.display = 'none';
+                    if (!data.success || window.adminDrivers.length === 0) {
+                        document.getElementById('driversEmpty').style.display = 'block';
+                        return;
+                    }
+                    document.getElementById('driversBody').innerHTML = window.adminDrivers.map(driver => `
+                        <tr>
+                            <td>${driver.photo_url ? `<img class="driver-photo" src="${escapePrintValue(driver.photo_url)}" alt="${escapePrintValue(driver.full_name)}">` : '<span class="driver-photo-placeholder">👤</span>'}</td>
+                            <td><strong>${escapePrintValue(driver.full_name)}</strong></td>
+                            <td>${escapePrintValue(driver.phone)}</td>
+                            <td>${escapePrintValue(driver.email)}</td>
+                            <td>${escapePrintValue(driver.license_number)}</td>
+                            <td><span class="driver-status ${driver.status === 'on_duty' ? 'on-duty' : driver.status === 'at_rest' ? 'at-rest' : 'available'}">${escapePrintValue(driver.status.replace('_', ' '))}</span></td>
+                            <td><button type="button" class="driver-action-button assign" onclick="editDriver(${driver.driver_id})">Edit</button><button type="button" class="driver-action-button delete" onclick="deleteDriver(${driver.driver_id})">Delete</button></td>
+                        </tr>
+                    `).join('');
+                    document.getElementById('driversTable').style.display = 'table';
+                })
+                .catch(error => {
+                    showAppAlert('Drivers could not be loaded.', 'Driver records');
+                    throw error;
+                });
+        }
+
+        document.getElementById('driverForm').addEventListener('submit', event => {
+            event.preventDefault();
+            const driverForm = event.currentTarget;
+            const formData = new FormData(driverForm);
+            fetch('api/admin_dashboard.php?action=save_driver', { method: 'POST', body: formData })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Driver could not be saved');
+                    driverForm.reset();
+                    showAppAlert('Driver saved successfully.', 'Driver management');
+                    loadDrivers().then(() => loadAllBookings());
+                })
+                .catch(error => showAppAlert(error.message, 'Driver management'));
+        });
+
+            function editDriver(driverId) {
+                const driver = window.adminDrivers.find(item => Number(item.driver_id) === Number(driverId));
+                if (!driver) return;
+                document.getElementById('driverId').value = driver.driver_id;
+                document.getElementById('driverName').value = driver.full_name || '';
+                document.getElementById('driverPhone').value = driver.phone || '';
+                document.getElementById('driverEmail').value = driver.email || '';
+                document.getElementById('driverLicense').value = driver.license_number || '';
+                document.getElementById('driverStatus').value = ['available', 'on_duty', 'at_rest'].includes(driver.status) ? driver.status : 'available';
+                document.getElementById('driverPhoto').value = '';
+                document.getElementById('driverName').focus();
+            }
+
+        function assignDriver(bookingId) {
+            const driverId = document.getElementById(`driver-${bookingId}`)?.value;
+            if (!driverId) return showAppAlert('Select a driver first.', 'Assign driver');
+            const formData = new FormData();
+            formData.append('booking_id', bookingId);
+            formData.append('driver_id', driverId);
+            fetch('api/admin_dashboard.php?action=assign_driver', { method: 'POST', body: formData })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Driver could not be assigned');
+                    showAppAlert('Driver assigned to this booking.', 'Assignment complete');
+                    loadStats();
+                    loadDrivers().catch(() => {}).finally(loadAllBookings);
+                })
+                .catch(error => showAppAlert(error.message, 'Assign driver'));
+        }
+
+        function removeDriverAssignment(bookingId) {
+            if (!confirm('Remove the assigned driver?')) return;
+            const formData = new FormData();
+            formData.append('booking_id', bookingId);
+            fetch('api/admin_dashboard.php?action=remove_assignment', { method: 'POST', body: formData })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Assignment could not be removed');
+                    showAppAlert('The assigned driver was removed.', 'Remove Assigned Driver');
+                    loadAllBookings();
+                })
+                .catch(error => showAppAlert(error.message, 'Remove Assigned Driver'));
+        }
+
+        function deleteDriver(driverId) {
+            if (!confirm('Delete this driver and remove all their assignments?')) return;
+            const formData = new FormData();
+            formData.append('driver_id', driverId);
+            fetch('api/admin_dashboard.php?action=delete_driver', { method: 'POST', body: formData })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Driver could not be deleted');
+                    showAppAlert('Driver deleted and assignments removed.', 'Driver deleted');
+                    loadDrivers();
+                    loadAllBookings();
+                })
+                .catch(error => showAppAlert(error.message, 'Delete driver'));
+        }
+
+        function deleteFeedback(feedbackId) {
+            if (!confirm('Delete this feedback permanently?')) return;
+
+            const formData = new FormData();
+            formData.append('feedback_id', feedbackId);
+            fetch('api/admin_dashboard.php?action=delete_feedback', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Feedback could not be deleted');
+                    showAppAlert('Feedback deleted successfully.', 'Feedback deleted');
+                    loadFeedback();
+                })
+                .catch(error => showAppAlert(error.message, 'Delete feedback'));
+        }
+
+        function escapePrintValue(value) {
+            return String(value ?? '—')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function printCompletedPayment(paymentIndex) {
+            const payment = window.completedPayments?.[paymentIndex];
+            if (!payment) return;
+
+            const printWindow = window.open('', '_blank', 'width=900,height=750');
+            if (!printWindow) {
+                showAppAlert('Please allow pop-ups to print this payment reference.', 'Print payment');
+                return;
+            }
+
+            const truckImage = payment.image_url || 'image/volvo 3.jpg';
+            const isMobilePayment = payment.method === 'mobile';
+            const paymentChannelDetails = isMobilePayment
+                ? `
+                    <div class="detail"><span class="label">Mobile Network</span><span class="value">${escapePrintValue(payment.simcardprovider)}</span></div>
+                    <div class="detail"><span class="label">Mobile Phone Number</span><span class="value">${escapePrintValue(payment.payment_phone)}</span></div>
+                `
+                : `
+                    <div class="detail"><span class="label">Bank Name</span><span class="value">${escapePrintValue(payment.bankname)}</span></div>
+                    <div class="detail"><span class="label">Bank Account Number</span><span class="value">${escapePrintValue(payment.account_number)}</span></div>
+                `;
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Payment Reference ${escapePrintValue(payment.payment_reference)}</title>
+                    <style>
+                        body { margin: 0; padding: 32px; color: #182235; font-family: Arial, sans-serif; }
+                        h1 { margin: 0 0 6px; color: #205653; }
+                        .subtitle { margin: 0 0 24px; color: #526078; }
+                        .header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; border-bottom: 2px solid #205653; padding-bottom: 18px; }
+                        .truck-image { width: 180px; height: 125px; object-fit: cover; border-radius: 8px; border: 1px solid #cbd8d5; }
+                        .details { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; margin-top: 24px; }
+                        .detail { padding: 10px 0; border-bottom: 1px solid #dce5e2; }
+                        .label { display: block; margin-bottom: 4px; color: #64777a; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+                        .value { font-size: 15px; font-weight: bold; }
+                        .paid { color: #17643b; }
+                        @media print { body { padding: 15mm; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div><h1>Completed Payment Reference</h1><p class="subtitle">Rental Truck Management System</p></div>
+                        <img class="truck-image" src="${escapePrintValue(truckImage)}" alt="Booked truck">
+                    </div>
+                    <div class="details">
+                        <div class="detail"><span class="label">Payment Reference</span><span class="value">${escapePrintValue(payment.payment_reference)}</span></div>
+                        <div class="detail"><span class="label">Payment Status</span><span class="value paid">${escapePrintValue(payment.payment_status)}</span></div>
+                        <div class="detail"><span class="label">Booking ID</span><span class="value">${escapePrintValue(payment.booking_id)}</span></div>
+                        <div class="detail"><span class="label">Paid At</span><span class="value">${escapePrintValue(payment.paid_at)}</span></div>
+                        <div class="detail"><span class="label">Customer</span><span class="value">${escapePrintValue(payment.payer_name)}</span></div>
+                        <div class="detail"><span class="label">Email</span><span class="value">${escapePrintValue(payment.payer_email)}</span></div>
+                        <div class="detail"><span class="label">Phone</span><span class="value">${escapePrintValue(payment.phone || payment.payment_phone)}</span></div>
+                        <div class="detail"><span class="label">Truck</span><span class="value">${escapePrintValue(payment.booked_truck_name)}</span></div>
+                        <div class="detail"><span class="label">Plate Number</span><span class="value">${escapePrintValue(payment.plate_number)}</span></div>
+                        <div class="detail"><span class="label">Cargo Type</span><span class="value">${escapePrintValue(payment.cargo_type)}</span></div>
+                        <div class="detail"><span class="label">Pickup</span><span class="value">${escapePrintValue(payment.pickup)}</span></div>
+                        <div class="detail"><span class="label">Destination</span><span class="value">${escapePrintValue(payment.destination)}</span></div>
+                        <div class="detail"><span class="label">Trip Date</span><span class="value">${escapePrintValue(payment.trip_date)}</span></div>
+                        <div class="detail"><span class="label">Payment Method</span><span class="value">${escapePrintValue(payment.method)}</span></div>
+                        ${paymentChannelDetails}
+                        <div class="detail"><span class="label">Amount Paid</span><span class="value">${Number(payment.amount || payment.cost || 0).toLocaleString()} TZS</span></div>
+                        <div class="detail"><span class="label">Truck Status</span><span class="value">${escapePrintValue(payment.truck_status)}</span></div>
+                    </div>
+                    <script>window.onload = function () { window.print(); };<\/script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+
+        // ================================================================
+        // LOAD TRUCKS
+        // ================================================================
+        function loadTrucks() {
+            const cargoType = document.getElementById('truckCargoFilter')?.value || '';
+            fetch(`api/admin_dashboard.php?action=trucks&cargo_type=${encodeURIComponent(cargoType)}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('trucksLoading').style.display = 'none';
+                    
+                    if (data.success && data.trucks.length > 0) {
+                        const tbody = document.getElementById('trucksBody');
+                        tbody.innerHTML = '';
+                        
+                        data.trucks.forEach(truck => {
+                            let statusClass = 'status-available';
+                            let statusText = truck.status || 'Available';
+                            const currentTruckStatus = String(truck.status || '').toLowerCase();
+                            const isMaintenance = currentTruckStatus === 'maintenance';
+                            const isBooked = currentTruckStatus === 'booked';
+                            
+                            if (statusText.toLowerCase() === 'unavailable' || statusText.toLowerCase() === 'booked') {
+                                statusClass = 'status-unavailable';
+                            } else if (statusText.toLowerCase() === 'maintenance') {
+                                statusClass = 'status-maintenance';
+                            }
+                            
+                            const row = `
+                                <tr>
+                                    <td><img class="truck-thumbnail" src="${truck.image_url || 'image/heavy.jpeg'}" alt="${truck.truck_name || 'Truck'}" onerror="this.src='image/heavy.jpeg'"></td>
+                                    <td><strong>${truck.truck_name}</strong></td>
+                                    <td>${truck.plate_number}</td>
+                                    <td>${truck.capacity} Tons</td>
+                                    <td>${truck.fuel_type}</td>
+                                    <td>${truck.cargo_type}</td>
+                                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                                    <td>${Number(truck.price_per_km || 0).toLocaleString()} TZS/km</td>
+                                    <td>
+                                        <div class="truck-actions">
+                                            <a class="truck-action edit" href="truck_edit.php?id=${truck.truck_id}">Edit</a>
+                                            ${isBooked ? `<button class="truck-action release" onclick="releaseTruck(${truck.truck_id}, '${String(truck.truck_name || 'truck').replace(/'/g, "\\'")}')">Return Truck to Booking</button>` : `<button class="truck-action toggle" onclick="setTruckStatus(${truck.truck_id}, '${isMaintenance ? 'available' : 'maintenance'}')">${isMaintenance ? 'Make Available' : 'Maintenance'}</button>`}
+                                            <button class="truck-action delete" onclick="deleteTruck(${truck.truck_id}, '${String(truck.truck_name || '').replace(/'/g, "\\'")}')">Delete</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                            tbody.innerHTML += row;
+                        });
+                        
+                        document.getElementById('trucksTable').style.display = 'table';
+                    } else {
+                        document.getElementById('trucksEmpty').style.display = 'block';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('trucksLoading').style.display = 'none';
+                    document.getElementById('trucksEmpty').style.display = 'block';
+                    showAppAlert('Truck records could not be loaded. Please try again.', 'Truck status');
+                });
+        }
+
+        function setTruckStatus(truckId, status) {
+            const formData = new FormData();
+            formData.append('truck_id', truckId);
+            formData.append('status', status);
+            fetch('api/admin_dashboard.php?action=truck_status', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Could not update truck status');
+                    loadStats();
+                    loadTrucks();
+                })
+                .catch(error => showAppAlert(error.message, 'Truck status'));
+        }
+
+        function releaseTruck(truckId, truckName) {
+            if (!confirm(`Return ${truckName} to booking availability?`)) return;
+            const formData = new FormData();
+            formData.append('truck_id', truckId);
+            fetch('api/admin_dashboard.php?action=release_truck', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Could not release this truck');
+                    showAppAlert('The truck is available for booking again.', 'Return Truck to Booking');
+                    loadStats();
+                    loadTrucks();
+                    loadRecentBookings();
+                    loadAllBookings();
+                })
+                .catch(error => showAppAlert(error.message, 'Return Truck to Booking'));
+        }
+
+        function releaseBooking(bookingId, truckName) {
+            if (!confirm(`Return ${truckName} to booking availability?`)) return;
+            const formData = new FormData();
+            formData.append('booking_id', bookingId);
+            formData.append('truck_id', 0);
+            fetch('api/admin_dashboard.php?action=release_booking', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Could not release this truck');
+                    showAppAlert('The truck is available for booking again.', 'Return Truck to Booking');
+                    loadStats();
+                    loadAllBookings();
+                    loadTrucks();
+                })
+                .catch(error => showAppAlert(error.message, 'Return Truck to Booking'));
+        }
+
+        function deleteTruck(truckId, truckName) {
+            if (!confirm(`Delete ${truckName || 'this truck'} permanently from the database?`)) return;
+            const formData = new FormData();
+            formData.append('truck_id', truckId);
+            fetch('api/admin_dashboard.php?action=delete_truck', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Could not delete truck');
+                    loadStats();
+                    loadTrucks();
+                })
+                .catch(error => showAppAlert(error.message, 'Delete issue'));
+        }
+
+        let adminRouteMap = null;
+
+        async function viewBookingRoute(bookingId, pickupLat, pickupLng, destinationLat, destinationLng) {
+            const modal = document.getElementById('routeModal');
+            const mapElement = document.getElementById('adminRouteMap');
+            const pickup = [pickupLat, pickupLng];
+            const destination = [destinationLat, destinationLng];
+            document.getElementById('routeModalTitle').textContent = 'Booking #' + bookingId + ' route';
+            modal.classList.add('is-open');
+
+            if (adminRouteMap) {
+                adminRouteMap.remove();
+            }
+            adminRouteMap = L.map(mapElement, { zoomControl: true }).setView(pickup, 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(adminRouteMap);
+            L.marker(pickup).addTo(adminRouteMap).bindPopup('Pickup location');
+            L.marker(destination).addTo(adminRouteMap).bindPopup('Destination');
+            adminRouteMap.fitBounds(L.latLngBounds([pickup, destination]), { padding: [24, 24] });
+            try {
+                const coordinates = `${pickupLng},${pickupLat};${destinationLng},${destinationLat}`;
+                const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`);
+                if (!response.ok) throw new Error('Route service unavailable');
+                const data = await response.json();
+                const geometry = data.routes && data.routes[0] && data.routes[0].geometry;
+                if (!geometry) throw new Error('Route geometry unavailable');
+                const routeLine = L.geoJSON(geometry, {
+                    style: { color: '#1e3c72', weight: 5, opacity: .9 }
+                }).addTo(adminRouteMap);
+                adminRouteMap.fitBounds(routeLine.getBounds(), { padding: [24, 24] });
+            } catch (error) {
+                document.getElementById('routeModalTitle').textContent = 'Booking #' + bookingId + ' route (road path unavailable)';
+            }
+            setTimeout(() => adminRouteMap.invalidateSize(), 100);
+        }
+
+        function closeRouteMap() {
+            document.getElementById('routeModal').classList.remove('is-open');
+        }
+
+        function agreementValue(value) {
+            const element = document.createElement('span');
+            element.textContent = value || '—';
+            return element.innerHTML;
+        }
+
+        function viewAdminAgreement(booking) {
+            if (!booking) return;
+            const set = (id, value) => { document.getElementById(id).textContent = value || '—'; };
+            set('adminAgreementCustomer', booking.fullname);
+            set('adminAgreementPartyCustomer', booking.fullname);
+            set('adminAgreementEmail', booking.email);
+            set('adminAgreementPhone', booking.phone);
+            set('adminAgreementTruck', booking.booked_truck_name);
+            set('adminAgreementPlate', booking.plate_number);
+            set('adminAgreementCapacity', `${booking.capacity || '—'} / ${booking.cargo_type || '—'}`);
+            set('adminAgreementPickup', booking.pickup);
+            set('adminAgreementDestination', booking.destination);
+            set('adminAgreementDate', `${booking.trip_date || '—'} / ${booking.distance || 0} km`);
+            set('adminAgreementFullCost', `${Number(booking.original_cost || booking.cost || 0).toLocaleString()} TZS`);
+            set('adminAgreementDiscount', Number(booking.discount_amount || 0) > 0 ? `-${Number(booking.discount_amount).toLocaleString()} TZS (${booking.discount_percent || 0}%)` : 'No discount');
+            set('adminAgreementAmount', `${Number(booking.cost || 0).toLocaleString()} TZS`);
+            set('adminAgreementSignedBy', booking.fullname);
+            set('adminAgreementReference', `BOOKING #${booking.booking_id}`);
+            document.getElementById('adminAgreementModal').classList.add('is-open');
+        }
+
+        function closeAdminAgreement() {
+            document.getElementById('adminAgreementModal').classList.remove('is-open');
+        }
+
+        function printAdminAgreement() {
+            document.body.classList.add('print-agreement-mode');
+            window.onafterprint = () => {
+                document.body.classList.remove('print-agreement-mode');
+                window.onafterprint = null;
+            };
+            window.setTimeout(() => window.print(), 100);
+        }
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') closeRouteMap();
+            if (event.key === 'Escape') closeAdminAgreement();
+        });
+
+
+        // ================================================================
+        // INITIALIZE ON PAGE LOAD
+        // ================================================================
+        window.addEventListener('DOMContentLoaded', function() {
+            const bgImages = [
+                'image/volvo 3.jpg', 'image/meat van3.jfif'
+            ];
+            let bgIndex = 0;
+            function changeBackground() {
+                document.body.style.backgroundImage = `url('${bgImages[bgIndex]}')`;
+                bgIndex = (bgIndex + 1) % bgImages.length;
+            }
+            changeBackground();
+            setInterval(changeBackground, 6000);
+            loadStats();
+            loadRecentBookings();
+        });
+    </script>
+    <div class="route-modal" id="routeModal" role="dialog" aria-modal="true" aria-labelledby="routeModalTitle">
+        <div class="route-modal-card">
+            <div class="route-modal-header">
+                <h2 id="routeModalTitle">Booking route</h2>
+                <button type="button" onclick="closeRouteMap()" aria-label="Close route map">&times;</button>
+            </div>
+            <div id="adminRouteMap"></div>
+        </div>
+    </div>
+    <div class="admin-agreement-modal" id="adminAgreementModal" role="dialog" aria-modal="true" aria-labelledby="adminAgreementTitle">
+        <article class="admin-agreement">
+            <div class="admin-agreement-head"><div><h2 id="adminAgreementTitle">RENTAL TRUCK SYSTEM</h2><p>Digital Rental Agreement · Tanzania</p></div><div class="admin-agreement-ref">DIGITAL CONTRACT<br><span id="adminAgreementReference">BOOKING AGREEMENT</span></div></div>
+            <div class="admin-agreement-summary">
+                <div><span>Customer</span><strong id="adminAgreementCustomer">—</strong></div><div><span>Email</span><strong id="adminAgreementEmail">—</strong></div><div><span>Phone</span><strong id="adminAgreementPhone">—</strong></div>
+                <div><span>Truck</span><strong id="adminAgreementTruck">—</strong></div><div><span>Plate</span><strong id="adminAgreementPlate">—</strong></div><div><span>Capacity / cargo</span><strong id="adminAgreementCapacity">—</strong></div>
+                <div><span>Pickup</span><strong id="adminAgreementPickup">—</strong></div><div><span>Destination</span><strong id="adminAgreementDestination">—</strong></div><div><span>Date / distance</span><strong id="adminAgreementDate">—</strong></div>
+            </div>
+            <h3>1. Parties to this agreement</h3><p><strong>Service Provider:</strong> Rental Truck Management System, Dar es Salaam, Tanzania.<br><strong>Customer:</strong> <span id="adminAgreementPartyCustomer">Customer</span>.</p>
+            <h3>2. Rental service</h3><p>The Service Provider provides the selected vehicle and a qualified driver for the trip shown above.</p>
+            <h3>3. Payment terms</h3><ul><li>Payment must be completed before the trip begins.</li><li>Payment methods are bank transfer or mobile money.</li><li>Extra costs such as fuel, parking and tolls are paid by the Customer.</li><li>Full trip cost: <strong id="adminAgreementFullCost">—</strong>.</li><li>Discount: <strong id="adminAgreementDiscount">No discount</strong>.</li><li>Amount due: <strong id="adminAgreementAmount">—</strong>.</li></ul>
+            <h3>4. Customer responsibilities</h3><ul><li>Provide accurate information.</li><li>Do not misuse the vehicle or transport prohibited goods.</li><li>Cooperate with the driver and report issues immediately.</li></ul>
+            <h3>5. Insurance and safety</h3><p>Basic insurance applies to eligible road incidents during the trip. Negligence, misuse and prohibited goods are excluded.</p>
+            <h3>6. Driver provisions</h3><ul><li>The Service Provider assigns a qualified and licensed driver.</li><li>The driver operates the vehicle safely and professionally.</li><li>The Customer shall not request traffic-law violations.</li></ul>
+            <h3>7. Cancellation policy</h3><ul><li>More than 24 hours before trip: no charge.</li><li>Less than 24 hours: 20% of total rental cost.</li><li>No-show: 50% of total rental cost.</li></ul>
+            <h3>8. Loyalty discount</h3><p>Eligible customers who complete five paid trips receive the displayed loyalty discount on future bookings.</p>
+            <h3>9. Acknowledgement</h3><p>The Customer confirms that they have read and understood these terms and agrees to comply with them.</p>
+            <div class="admin-agreement-signatures"><div class="admin-signature"><small>Customer electronic signature</small><strong id="adminAgreementSignedBy">—</strong><p>Signed with booking acceptance</p></div><div class="admin-signature"><small>Service Provider official signature</small><strong>Rental Truck Management System</strong><span class="admin-provider-stamp">RENTAL TRUCK<br>OFFICIAL STAMP</span><p>Digitally approved by Service Provider</p></div></div>
+            <div class="admin-agreement-actions"><button type="button" onclick="closeAdminAgreement()">Close</button><button type="button" class="print-admin-agreement" onclick="printAdminAgreement()">Print Agreement</button></div>
+        </article>
+    </div>
+</body>
+</html>
